@@ -512,9 +512,9 @@ void angle_control(void)
     Psi = atan2(e12,e11);
 
     //Get angle ref 
-    Phi_ref   = Phi_trim   + 0.3 *M_PI*(float)(Chdata[3] - (CH4MAX+CH4MIN)*0.5)*2/(CH4MAX-CH4MIN);
-    Theta_ref = Theta_trim + 0.3 *M_PI*(float)(Chdata[1] - (CH2MAX+CH2MIN)*0.5)*2/(CH2MAX-CH2MIN);
-    Psi_ref   = Psi_trim   + 0.8 *M_PI*(float)(Chdata[0] - (CH1MAX+CH1MIN)*0.5)*2/(CH1MAX-CH1MIN);
+    Phi_ref   = Phi_trim   + 0.3 * M_PI *(float)(Chdata[3] - (CH4MAX+CH4MIN)*0.5)*2/(CH4MAX-CH4MIN);
+    Theta_ref = Theta_trim + 0.3 * M_PI *(float)(Chdata[1] - (CH2MAX+CH2MIN)*0.5)*2/(CH2MAX-CH2MIN);
+    Psi_ref   = Psi_trim   + 0.8 * M_PI *(float)(Chdata[0] - (CH1MAX+CH1MIN)*0.5)*2/(CH1MAX-CH1MIN);
 
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);
