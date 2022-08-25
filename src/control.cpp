@@ -3,6 +3,7 @@
 //Sensor data
 float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 float Acc_norm=0.0;
+quat_t Quat;
 
 //Times
 float Elapsed_time=0.0;
@@ -28,6 +29,9 @@ const float Phi_trim   = 0.01;
 const float Theta_trim = 0.02;
 const float Psi_trim   = 0.0;
 
+//RC
+uint16_t Chdata[18];
+
 //Extended Kalman filter 
 #if 0
 Matrix<float, 7 ,1> Xp = MatrixXf::Zero(7,1);
@@ -51,11 +55,12 @@ const uint8_t DATANUM=38; //Log Data Number
 const uint32_t LOGDATANUM=48000;
 float Logdata[LOGDATANUM]={0.0};
 
-//State Machine
+//Machine state
 uint8_t LockMode=0;
 float Disable_duty =0.10;
 float Flight_duty  =0.18;//0.2/////////////////
 uint8_t OverG_flag = 0;
+uint8_t Arm_flag = 0;
 
 //PID object and etc.
 Filter acc_filter;
@@ -79,18 +84,32 @@ uint8_t lock_com(void);
 uint8_t logdata_out_com(void);
 void printPQR(void);
 
+
 #define AVERAGE 2000
 #define KALMANWAIT 6000
+
+void gpio_put(uint8_t p, uint8_t state)
+{
+  return;
+}
+
+void set_duty_fr(double duty){}
+void set_duty_fl(double duty){}
+void set_duty_rr(double duty){}
+void set_duty_rl(double duty){}
+
+void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz){}
+void madgwick_filter(quat_t* quat){}
 
 //Main loop
 //This function is called from PWM Intrupt on 400Hz.
 void loop_400Hz(void)
 {
   static uint8_t led=1;
-  S_time=time_us_32();
+  //S_time=time_us_32();
   
   //割り込みフラグリセット
-  pwm_clear_irq(2);
+  //pwm_clear_irq(2);
 
 
   if (Arm_flag==0)
@@ -115,9 +134,9 @@ void loop_400Hz(void)
     {
       //Sensor Read
       sensor_read();
-      Aileron_center  += Chdata[3];
-      Elevator_center += Chdata[1];
-      Rudder_center   += Chdata[0];
+      Aileron_center  += Chdata[AILERON];
+      Elevator_center += Chdata[ELEVATOR];
+      Rudder_center   += Chdata[RUDDER];
       Pbias += Wp;
       Qbias += Wq;
       Rbias += Wr;
@@ -143,22 +162,23 @@ void loop_400Hz(void)
         My_ave = My_ave/AVERAGE;
         Mz_ave = Mz_ave/AVERAGE;
 
-        Xe(4,0) = Pbias;
-        Xe(5,0) = Qbias;
-        Xe(6,0) = Rbias;
-        Xp(4,0) = Pbias;
-        Xp(5,0) = Qbias;
-        Xp(6,0) = Rbias;
-        MN = Mx_ave;
-        ME = My_ave;
-        MD = Mz_ave;
+        //Xe(4,0) = Pbias;
+        //Xe(5,0) = Qbias;
+        //Xe(6,0) = Rbias;
+        //Xp(4,0) = Pbias;
+        //Xp(5,0) = Qbias;
+        //Xp(6,0) = Rbias;
+        //MN = Mx_ave;
+        //ME = My_ave;
+        //MD = Mz_ave;
       }
       
       AngleControlCounter++;
       if(AngleControlCounter==4)
       {
         AngleControlCounter=0;
-        sem_release(&sem);
+        //Multicore control
+        //sem_release(&sem);
       
       }
       Phi_bias   += Phi;
@@ -215,7 +235,7 @@ void loop_400Hz(void)
     {
       AngleControlCounter=0;
       //Angle Control (100Hz)
-      sem_release(&sem);
+      //sem_release(&sem);
     }
     AngleControlCounter++;
   }
@@ -279,8 +299,8 @@ void loop_400Hz(void)
       led=!led;
     }
   }
-  E_time=time_us_32();
-  D_time=E_time-S_time;
+  //E_time=time_us_32();
+  //D_time=E_time-S_time;
 }
 
 void control_init(void)
@@ -473,14 +493,15 @@ void angle_control(void)
   float e23,e33,e13,e11,e12;
   while(1)
   {
-    sem_acquire_blocking(&sem);
-    sem_reset(&sem, 0);
-    S_time2=time_us_32();
-    kalman_filter();
-    q0 = Xe(0,0);
-    q1 = Xe(1,0);
-    q2 = Xe(2,0);
-    q3 = Xe(3,0);
+    //sem_acquire_blocking(&sem);
+    //sem_reset(&sem, 0);
+    //S_time2=time_us_32();
+    //kalman_filter();
+    madgwick_filter(&Quat);
+    q0 = Quat.q0;
+    q1 = Quat.q1;
+    q2 = Quat.q2;
+    q3 = Quat.q3;
     e11 = q0*q0 + q1*q1 - q2*q2 - q3*q3;
     e12 = 2*(q1*q2 + q0*q3);
     e13 = 2*(q1*q3 - q0*q2);
@@ -509,9 +530,9 @@ void angle_control(void)
       phi_pid.reset();
       theta_pid.reset();
       psi_pid.reset();
-      Aileron_center  = Chdata[3];
-      Elevator_center = Chdata[1];
-      Rudder_center   = Chdata[0];
+      Aileron_center  = Chdata[AILERON];
+      Elevator_center = Chdata[ELEVATOR];
+      Rudder_center   = Chdata[RUDDER];
       /////////////////////////////////////
       Phi_bias   = Phi;
       Theta_bias = Theta;
@@ -528,8 +549,8 @@ void angle_control(void)
     //Logging
     logging();
 
-    E_time2=time_us_32();
-    D_time2=E_time2-S_time2;
+    //E_time2=time_us_32();
+    //D_time2=E_time2-S_time2;
 
   }
 }
@@ -546,13 +567,13 @@ void logging(void)
     }
     if(LogdataCounter+DATANUM<LOGDATANUM)
     {
-      Logdata[LogdataCounter++]=Xe(0,0);                  //1
-      Logdata[LogdataCounter++]=Xe(1,0);                  //2
-      Logdata[LogdataCounter++]=Xe(2,0);                  //3
-      Logdata[LogdataCounter++]=Xe(3,0);                  //4
-      Logdata[LogdataCounter++]=Xe(4,0);                  //5
-      Logdata[LogdataCounter++]=Xe(5,0);                  //6
-      Logdata[LogdataCounter++]=Xe(6,0);                  //7
+      Logdata[LogdataCounter++]=Quat.q0;                  //1
+      Logdata[LogdataCounter++]=Quat.q1;                  //2
+      Logdata[LogdataCounter++]=Quat.q2;                  //3
+      Logdata[LogdataCounter++]=Quat.q3;                  //4
+      Logdata[LogdataCounter++]=Quat.q0;                  //5
+      Logdata[LogdataCounter++]=Quat.q0;                  //6
+      Logdata[LogdataCounter++]=Quat.q0;                  //7
       Logdata[LogdataCounter++]=Wp;//-Pbias;              //8
       Logdata[LogdataCounter++]=Wq;//-Qbias;              //9
       Logdata[LogdataCounter++]=Wr;//-Rbias;              //10
@@ -663,16 +684,16 @@ void sensor_read(void)
 {
   float mx1, my1, mz1, mag_norm, acc_norm, rate_norm;
 
-  imu_mag_data_read();
-  Ax =-acceleration_mg[0]*GRAV*0.001;
-  Ay =-acceleration_mg[1]*GRAV*0.001;
-  Az = acceleration_mg[2]*GRAV*0.001;
-  Wp = angular_rate_mdps[0]*M_PI*5.55555555e-6;//5.5.....e-6=1/180/1000
-  Wq = angular_rate_mdps[1]*M_PI*5.55555555e-6;
-  Wr =-angular_rate_mdps[2]*M_PI*5.55555555e-6;
-  Mx0 =-magnetic_field_mgauss[0];
-  My0 = magnetic_field_mgauss[1];
-  Mz0 =-magnetic_field_mgauss[2];
+  imu_mag_data_read(&Ax, &Ay, &Az, &Wp, &Wq, &Wr);
+  //Ax =-acceleration_mg[0]*GRAV*0.001;
+  //Ay =-acceleration_mg[1]*GRAV*0.001;
+  //Az = acceleration_mg[2]*GRAV*0.001;
+  //Wp = angular_rate_mdps[0]*M_PI*5.55555555e-6;//5.5.....e-6=1/180/1000
+  //Wq = angular_rate_mdps[1]*M_PI*5.55555555e-6;
+  //Wr =-angular_rate_mdps[2]*M_PI*5.55555555e-6;
+  //Mx0 =-magnetic_field_mgauss[0];
+  //My0 = magnetic_field_mgauss[1];
+  //Mz0 =-magnetic_field_mgauss[2];
 
   
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
@@ -681,127 +702,14 @@ void sensor_read(void)
   rate_norm = sqrt(Wp*Wp + Wq*Wq + Wr*Wr);
   if (rate_norm > 6.0) OverG_flag =1;
 
-/*地磁気校正データ
-回転行列
-[[ 0.65330968  0.75327755 -0.07589064]
- [-0.75666134  0.65302622 -0.03194321]
- [ 0.02549647  0.07829232  0.99660436]]
-中心座標
-122.37559195017053 149.0184454603531 -138.99116060635413
-W
--2.432054387460946
-拡大係数
-0.003077277151877191 0.0031893151610213463 0.0033832794976645804
-
-//回転行列
-const float rot[9]={0.65330968, 0.75327755, -0.07589064,
-                   -0.75666134, 0.65302622, -0.03194321,
-                    0.02549647, 0.07829232,  0.99660436};
-//中心座標
-const float center[3]={122.37559195017053, 149.0184454603531, -138.99116060635413};
-//拡大係数
-const float zoom[3]={0.003077277151877191, 0.0031893151610213463, 0.0033832794976645804};
-*/
-  //回転行列
-  const float rot[9]={-0.78435472, -0.62015392, -0.01402787,
-                       0.61753358, -0.78277935,  0.07686857,
-                      -0.05865107,  0.05162955,  0.99694255};
-  //中心座標
-  const float center[3]={-109.32529343620176, 72.76584808916506, 759.2285249891385};
-  //拡大係数
-  const float zoom[3]={0.002034773458122364, 0.002173892202021849, 0.0021819494099235273};
-
-//回転・平行移動・拡大
-  mx1 = zoom[0]*( rot[0]*Mx0 +rot[1]*My0 +rot[2]*Mz0 -center[0]);
-  my1 = zoom[1]*( rot[3]*Mx0 +rot[4]*My0 +rot[5]*Mz0 -center[1]);
-  mz1 = zoom[2]*( rot[6]*Mx0 +rot[7]*My0 +rot[8]*Mz0 -center[2]);
-//逆回転
-  Mx = rot[0]*mx1 +rot[3]*my1 +rot[6]*mz1;
-  My = rot[1]*mx1 +rot[4]*my1 +rot[7]*mz1;
-  Mz = rot[2]*mx1 +rot[5]*my1 +rot[8]*mz1; 
-
-  mag_norm=sqrt(Mx*Mx +My*My +Mz*Mz);
-  Mx/=mag_norm;
-  My/=mag_norm;
-  Mz/=mag_norm;
 }
 
 void variable_init(void)
 {
-  //Variable Initalize
-  Xe << 1.00, 0.0, 0.0, 0.0,0.0,0.0, 0.0;
-  Xp =Xe;
-
-  Q <<  6.0e-9, 0.0    , 0.0    ,  0.0    , 0.0    , 0.0   ,
-        0.0   , 5.0e-9 , 0.0    ,  0.0    , 0.0    , 0.0   ,
-        0.0   , 0.0    , 2.8e-9 ,  0.0    , 0.0    , 0.0   ,
-        0.0   , 0.0    , 0.0    ,  5.0e-9 , 0.0    , 0.0   ,
-        0.0   , 0.0    , 0.0    ,  0.0    , 5.0e-9 , 0.0   ,
-        0.0   , 0.0    , 0.0    ,  0.0    , 0.0    , 5.0e-9;
-
-  R <<  1.701e0, 0.0     , 0.0     , 0.0   , 0.0   , 0.0   ,
-        0.0     , 2.799e0, 0.0     , 0.0   , 0.0   , 0.0   ,
-        0.0     , 0.0     , 1.056e0, 0.0   , 0.0   , 0.0   ,
-        0.0     , 0.0     , 0.0     , 2.3e-1, 0.0   , 0.0   ,
-        0.0     , 0.0     , 0.0     , 0.0   , 1.4e-1, 0.0   ,
-        0.0     , 0.0     , 0.0     , 0.0   , 0.0   , 0.49e-1;
-          
-  G <<   1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 
-        -1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 
-        -1.0,-1.0, 1.0, 0.0, 0.0, 0.0, 
-         1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 
-         0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 
-         0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 
-         0.0, 0.0, 0.0, 0.0, 0.0, 1.0;
-
-  Beta << 0.0, 0.0, 0.0;
-  
-  P <<  1e0,  0,   0,   0,   0,  0,   0,  
-        0  ,1e0,   0,   0,   0,  0,   0,
-        0  ,  0, 1e0,   0,   0,  0,   0,  
-        0  ,  0,   0, 1e0,   0,  0,   0, 
-        0  ,  0,   0, 0  , 1e0,  0,   0,  
-        0  ,  0,   0, 0  ,   0,1e0,   0,  
-        0  ,  0,   0, 0  ,   0,  0, 1e0;
 }
 
 void printPQR(void)
 {
-  volatile int m=0;
-  volatile int n=0;
-  //Print P
-  printf("#P\n");
-  for (m=0;m<7;m++)
-  {
-    printf("# ");
-    for (n=0;n<7;n++)
-    {
-      printf("%12.4e ",P(m,n));
-    }
-    printf("\n");
-  }
-  //Print Q
-  printf("#Q\n");
-  for (m=0;m<6;m++)
-  {
-    printf("# ");
-    for (n=0;n<6;n++)
-    {
-      printf("%12.4e ",Q(m,n));
-    }
-    printf("\n");
-  }
-  //Print R
-  printf("#R\n");
-  for (m=0;m<6;m++)
-  {
-    printf("# ");
-    for (n=0;n<6;n++)
-    {
-      printf("%12.4e ",R(m,n));
-    }
-    printf("\n");
-  }
 }
 
 void output_data(void)
@@ -809,15 +717,15 @@ void output_data(void)
   printf("%9.3f,"
          "%13.8f,%13.8f,%13.8f,%13.8f,"
          "%13.8f,%13.8f,%13.8f,"
-         "%6lu,%6lu,"
+         "%6u,%6u,"
          "%13.8f,%13.8f,%13.8f,"
          "%13.8f,%13.8f,%13.8f,"
          "%13.8f,%13.8f,%13.8f"
          //"%13.8f"
          "\n"
             ,Elapsed_time//1
-            ,Xe(0,0), Xe(1,0), Xe(2,0), Xe(3,0)//2~5 
-            ,Xe(4,0), Xe(5,0), Xe(6,0)//6~8
+            ,Quat.q0, Quat.q1, Quat.q2, Quat.q3//2~5 
+            ,Quat.q0, Quat.q1, Quat.q2//6~8
             //,Phi-Phi_bias, Theta-Theta_bias, Psi-Psi_bias//6~8
             ,D_time, D_time2//10,11
             ,Ax, Ay, Az//11~13
@@ -840,6 +748,7 @@ void output_sensor_raw_data(void)
         ); //20
 }
 
+#if 0
 void kalman_filter(void)
 {
   //Kalman Filter
@@ -848,7 +757,7 @@ void kalman_filter(void)
   Z << Ax, Ay, Az, Mx, My, Mz;
   ekf(Xp, Xe, P, Z, Omega_m, Q, R, G*dt, Beta, dt);
 }
-
+#endif
 
 PID::PID()
 {

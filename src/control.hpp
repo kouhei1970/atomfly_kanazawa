@@ -2,6 +2,7 @@
 #define CONTROL_HPP
 
 #include <stdio.h>
+#include <stdint.h>
 #include <math.h>
 
 //using Eigen::MatrixXd;
@@ -10,21 +11,31 @@
 //using Eigen::PartialPivLU;
 //using namespace Eigen;
 
-#define BATTERY_VOLTAGE (11.1)
+#define BATTERY_VOLTAGE (3.7)
+#define AILERON 3
+#define ELEVATOR 1
+#define RUDDER 0
+#define LED_PIN 13
+#define CH1MAX 1771
+#define CH1MIN 278
+#define CH2MAX 1756
+#define CH2MIN 316
+#define CH3MAX 1721
+#define CH3MIN 312
+#define CH4MAX 1745
+#define CH4MIN 291
+#define CH5MAX 1904
+#define CH5MIN 144
+#define CH6MAX 1904
+#define CH6MIN 144
 
-
-//グローバル関数の宣言
-void loop_400Hz(void);
-void control_init();
-void rate_control(void);
-void angle_control(void);
-void gyro_calibration(void);
-void variable_init(void);
-void log_output(void);
-
-//グローバル変数
-extern uint8_t LockMode;
-extern volatile uint8_t Logoutputflag;
+typedef struct
+{
+  float q0;
+  float q1;
+  float q2;
+  float q3;
+} quat_t;
 
 class PID
 {
@@ -68,5 +79,24 @@ class Filter
     float update(float u);
 };
 
+//グローバル関数の宣言
+void loop_400Hz(void);
+void control_init();
+void rate_control(void);
+void angle_control(void);
+void gyro_calibration(void);
+void variable_init(void);
+void log_output(void);
+void gpio_put(uint8_t p, uint8_t state);
+void set_duty_fr(float duty);
+void set_duty_fl(float duty);
+void set_duty_rr(float duty);
+void set_duty_rl(float duty);
+void madgwick_filter(quat_t* quat);
+void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz);
+
+//グローバル変数
+extern uint8_t LockMode;
+extern volatile uint8_t Logoutputflag;
 
 #endif
