@@ -15,12 +15,7 @@ void setup() {
   Serial.begin(115200);  // start serial for output
   Serial.println();
   Serial.println(start_time);
-
-
   init_atomfly();
-
-
-
   end_time = micros();
   Serial.println(end_time);
   Serial.println(end_time - start_time);
