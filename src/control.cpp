@@ -25,7 +25,7 @@ const int ledChannel1 = 0;
 const int ledChannel2 = 5;
 const int resolution = 8;
 
-double pitch, roll;  // Stores attitude related variables.  存储姿态相关变量
+float Roll, Pitch, Yaw;  // Stores attitude related variables.
 double r_rand = 180 / PI;
 
 Adafruit_BMP280 bme;
@@ -119,7 +119,6 @@ void init_atomfly(void)
   Serial.println("VLX53LOX test started.");
   Serial.println(F("BMP280 test started...\n"));
   M5.dis.drawpix(0, 0xff0000);
-  delay(1000);
   test_rangefinder();
   init_pwm();
   M5.dis.drawpix(0, 0x0000f0);
@@ -127,7 +126,7 @@ void init_atomfly(void)
 
 void init_i2c()
 {
-  Wire.begin();          // join i2c bus (address optional for master)
+  //Wire.begin();          // join i2c bus (address optional for master)
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
   for (byte i = 8; i < 120; i++)
@@ -152,8 +151,19 @@ void init_i2c()
 uint16_t get_distance(void)
 {
   write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+
+  byte val = 0;
+  int cnt = 0;
+  while (cnt < 100) { // 1 second waiting time max
+    delay(10);
+    val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
+    if (val & 0x01) break;
+    cnt++;
+  }
+  if (cnt==100) return 9999; 
+
   read_block_data_at(0x14, 12);
-  uint16_t dist                  = makeuint16(gbuf[11], gbuf[10]);
+  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
   return dist;
 }
 
@@ -186,7 +196,7 @@ void test_rangefinder(void)
       cnt++;
   }
   if (val & 0x01)
-      Serial.println("VL53L0X is ready");
+      Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
   else
       Serial.println("VL53L0X is not ready");
 
@@ -208,13 +218,42 @@ void test_rangefinder(void)
   //End Range finder Test
 }
 
+//float pitch,roll,yaw;
 
 void atomfly_main(void)
 {
 
   uint16_t dist;
+  M5.IMU.getAccelData(&Ax, &Ay, &Az);
+  M5.IMU.getGyroData(&Wp, &Wq, &Wr);
   dist = get_distance();
-  Serial.println(dist);
+  //Roll = 0.0; Pitch = 0.0; Yaw =0.0;
+  Serial.printf("%5d %5.2f %5.2f %5.2f %5.2f %5.2f %5.2f\n", dist, Ax, Ay, Az, Wp, Wq, Wr);
+  delay(100);
+/*
+  float ax, ay, az;
+  float gx, gy, gz;
+  dist = get_distance();
+  M5.IMU.getAccelData(&ax, &ay, &az);
+  //M5.IMU.getGyroData(&gx, &gy, &gz);
+
+  Serial.print(dist);
+  Serial.print(" ");
+  Serial.print(ax);
+  Serial.print(" ");
+  Serial.print(ay);
+  Serial.print(" ");
+  Serial.println(az);
+  /*
+  Serial.print(" ");
+  Serial.print(gx);
+  Serial.print(" ");
+  Serial.print(gy);
+  Serial.print(" ");
+  Serial.println(gz);
+*/
+//M5.update();
+
   #if 0
   if (M5.Btn.wasReleased() || M5.Btn.pressedFor(500)) {
     M5.dis.drawpix(0, 0xfff000);

@@ -12,7 +12,6 @@ void setup() {
   start_time = micros();
 
   M5.begin(true, true, true);
-  Serial.begin(115200);  // start serial for output
   Serial.println();
   Serial.println(start_time);
   init_atomfly();
@@ -21,10 +20,10 @@ void setup() {
   Serial.println(end_time - start_time);
 }
 
+//float Pitch,Roll,Yaw;
+
 void loop() {
-  M5.update();
   atomfly_main();
-  M5.update();
   M5.dis.drawpix(0, 0xff00ff);
-  delay(10);
+  //delay(33);
 }
