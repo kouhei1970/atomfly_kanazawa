@@ -1,4 +1,36 @@
+#include <Arduino.h>
+#include <M5Atom.h>
+#include "vl53l0x.h"
+#include "M5_ENV.h"
+#include "Adafruit_Sensor.h"
+#include <Adafruit_BMP280.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <math.h>
+#include <MadgwickAHRS.h>
+
 #include "control.hpp"
+
+const int pwmFL = 22;
+const int pwmFR = 19;
+const int pwmRL = 23;
+const int pwmRR = 33;
+
+const int freq = 300000;
+const int FL_motor = 1;
+const int FR_motor = 2;
+const int RL_motor = 3;
+const int RR_motor = 4;
+const int ledChannel1 = 0;
+const int ledChannel2 = 5;
+const int resolution = 8;
+
+double pitch, roll;  // Stores attitude related variables.  存储姿态相关变量
+double r_rand = 180 / PI;
+
+Adafruit_BMP280 bme;
+
+float pressure = 0.0;
 
 //Sensor data
 float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
@@ -32,20 +64,6 @@ const float Psi_trim   = 0.0;
 //RC
 uint16_t Chdata[18];
 
-//Extended Kalman filter 
-#if 0
-Matrix<float, 7 ,1> Xp = MatrixXf::Zero(7,1);
-Matrix<float, 7 ,1> Xe = MatrixXf::Zero(7,1);
-Matrix<float, 6 ,1> Z = MatrixXf::Zero(6,1);
-Matrix<float, 3, 1> Omega_m = MatrixXf::Zero(3, 1);
-Matrix<float, 3, 1> Oomega;
-Matrix<float, 7, 7> P;
-Matrix<float, 6, 6> Q;// = MatrixXf::Identity(3, 3)*0.1;
-Matrix<float, 6, 6> R;// = MatrixXf::Identity(6, 6)*0.0001;
-Matrix<float, 7 ,6> G;
-Matrix<float, 3 ,1> Beta;
-#endif
-
 //Log
 uint16_t LogdataCounter=0;
 uint8_t Logflag=0;
@@ -71,13 +89,14 @@ PID phi_pid;
 PID theta_pid;
 PID psi_pid;
 
+
 void loop_400Hz(void);
 void rate_control(void);
 void sensor_read(void);
 void angle_control(void);
 void output_data(void);
 void output_sensor_raw_data(void);
-void kalman_filter(void);
+//void kalman_filter(void);
 void logging(void);
 void motor_stop(void);
 uint8_t lock_com(void);
@@ -93,6 +112,180 @@ void gpio_put(uint8_t p, uint8_t state)
   return;
 }
 
+void init_atomfly(void)
+{
+  init_i2c();
+  M5.IMU.Init();
+  Serial.println("VLX53LOX test started.");
+  Serial.println(F("BMP280 test started...\n"));
+  M5.dis.drawpix(0, 0xff0000);
+  delay(1000);
+  test_rangefinder();
+  init_pwm();
+  M5.dis.drawpix(0, 0x0000f0);
+}
+
+void init_i2c()
+{
+  Wire.begin();          // join i2c bus (address optional for master)
+  Serial.println ("I2C scanner. Scanning ...");
+  byte count = 0;
+  for (byte i = 8; i < 120; i++)
+  {
+    Wire.beginTransmission (i);          // Begin I2C transmission Address (i)
+    if (Wire.endTransmission () == 0)  // Receive 0 = success (ACK response) 
+    {
+      Serial.print ("Found address: ");
+      Serial.print (i, DEC);
+      Serial.print (" (0x");
+      Serial.print (i, HEX);     // PCF8574 7 bit address
+      Serial.println (")");
+      count++;
+    }
+  }
+  Serial.print ("Found ");      
+  Serial.print (count, DEC);        // numbers of devices
+  Serial.println (" device(s).");
+
+}
+
+uint16_t get_distance(void)
+{
+  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+  read_block_data_at(0x14, 12);
+  uint16_t dist                  = makeuint16(gbuf[11], gbuf[10]);
+  return dist;
+}
+
+void init_pwm(void)
+{
+  //ledcSetup(ledChannel1, freq, resolution);
+  //ledcSetup(ledChannel2, freq, resolution);
+  ledcSetup(FL_motor, freq, resolution);
+  ledcSetup(FR_motor, freq, resolution);
+  ledcSetup(RL_motor, freq, resolution);
+  ledcSetup(RR_motor, freq, resolution);
+  ledcAttachPin(pwmFL, FL_motor);
+  ledcAttachPin(pwmFR, FR_motor);
+  ledcAttachPin(pwmRL, RL_motor);
+  ledcAttachPin(pwmRR, RR_motor);
+}
+
+void test_rangefinder(void)
+{
+  //Begin Range finder Test
+  //Serial.println(read_byte_data_at(VL53L0X_REG_IDENTIFICATION_MODEL_ID));
+  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+
+  byte val = 0;
+  int cnt  = 0;
+  while (cnt < 100) {  // 1 second waiting time max
+      delay(10);
+      val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
+      if (val & 0x01) break;
+      cnt++;
+  }
+  if (val & 0x01)
+      Serial.println("VL53L0X is ready");
+  else
+      Serial.println("VL53L0X is not ready");
+
+  read_block_data_at(0x14, 12);
+  uint16_t acnt                  = makeuint16(gbuf[7], gbuf[6]);
+  uint16_t scnt                  = makeuint16(gbuf[9], gbuf[8]);
+  uint16_t dist                  = makeuint16(gbuf[11], gbuf[10]);
+  byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
+  Serial.print("ambient count: ");
+  Serial.println(acnt);
+  Serial.print("signal count: ");
+  Serial.println(scnt);
+  Serial.print("ambient count: ");
+  Serial.println(acnt);
+  Serial.print("distance: ");
+  Serial.println(dist);
+  Serial.print("status: ");
+  Serial.println(DeviceRangeStatusInternal);
+  //End Range finder Test
+}
+
+
+void atomfly_main(void)
+{
+
+  uint16_t dist;
+  dist = get_distance();
+  Serial.println(dist);
+  #if 0
+  if (M5.Btn.wasReleased() || M5.Btn.pressedFor(500)) {
+    M5.dis.drawpix(0, 0xfff000);
+
+    
+
+    //Serial.println("IMU Ready");
+    M5.IMU.getAttitude(&pitch,
+                       &roll);  // Read the attitude (pitch, heading) of the IMU
+                                // and store it in relevant variables.
+                                // 读取IMU的姿态（俯仰、航向）并存储至相关变量
+    double arc = atan2(pitch, roll) * r_rand + 180;
+    double valIMU = sqrt(pitch * pitch + roll * roll);
+    //Serial.println("hoge");
+    Serial.printf("%.2f,%.2f,%.2f,%.2f\n", pitch, roll, arc,
+                  valIMU);  // serial port output the formatted string.  串口输出
+
+    
+    while (!bme.begin(0x76)) {  //初始化bme传感器.  Init the sensor of bme
+        Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+        M5.dis.drawpix(0, 0xff0000);
+    }
+    M5.dis.drawpix(0, 0xfff000);
+    pressure = bme.readPressure();  // Stores the pressure gained by BMP.
+                                    // 存储bmp获取到的压强
+    Serial.printf("Pressure:%2.0fPa\n",
+                  pressure);
+    delay(20);
+    
+    ledcAttachPin(pwmFL, FL_motor);
+    ledcAttachPin(pwmFR, FR_motor);
+    ledcAttachPin(pwmRL, RL_motor);
+    ledcAttachPin(pwmRR, RR_motor);
+    M5.dis.drawpix(0, 0x00ff00);
+    delay(1000);
+
+    ledcWrite(FL_motor, 100);
+    delay(100);
+    ledcWrite(FL_motor, 0);
+
+    ledcWrite(FR_motor, 100);
+    delay(100);
+    ledcWrite(FR_motor, 0);
+
+    ledcWrite(RL_motor, 100);
+    delay(100);
+    ledcWrite(RL_motor, 0);
+
+    ledcWrite(RR_motor, 100);
+    delay(100);
+    ledcWrite(RR_motor, 0);
+
+    delay(2000);
+    float duty=64;
+    ledcWrite(FL_motor, duty);
+    ledcWrite(FR_motor, duty);
+    ledcWrite(RL_motor, duty);
+    ledcWrite(RR_motor, duty);
+    delay(5000);
+    ledcWrite(FL_motor, 0);
+    ledcWrite(FR_motor, 0);
+    ledcWrite(RL_motor, 0);
+    ledcWrite(RR_motor, 0);
+
+  }
+  #endif
+
+}
+
+
+
 void set_duty_fr(double duty){}
 void set_duty_fl(double duty){}
 void set_duty_rr(double duty){}
@@ -100,6 +293,9 @@ void set_duty_rl(double duty){}
 
 void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz){}
 void madgwick_filter(quat_t* quat){}
+
+
+
 
 //Main loop
 //This function is called from PWM Intrupt on 400Hz.

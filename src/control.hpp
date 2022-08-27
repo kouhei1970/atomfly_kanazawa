@@ -1,9 +1,6 @@
 #ifndef CONTROL_HPP
 #define CONTROL_HPP
 
-#include <stdio.h>
-#include <stdint.h>
-#include <math.h>
 
 //using Eigen::MatrixXd;
 //using Eigen::MatrixXf;
@@ -80,6 +77,12 @@ class Filter
 };
 
 //グローバル関数の宣言
+void init_atomfly(void);
+void atomfly_main(void);
+void test_rangefinder(void);
+void init_i2c();
+void init_pwm();
+
 void loop_400Hz(void);
 void control_init();
 void rate_control(void);
