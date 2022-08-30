@@ -1,15 +1,21 @@
 #include <Arduino.h>
 #include <M5Atom.h>
 #include "vl53l0x.h"
-#include "M5_ENV.h"
+//#include "M5_ENV.h"
 #include "Adafruit_Sensor.h"
 #include <Adafruit_BMP280.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdint.h>
 #include <math.h>
 #include <MadgwickAHRS.h>
 
+#include "rc.hpp"
 #include "control.hpp"
+
+#include "BluetoothSerial.h"
+
+BluetoothSerial SerialBT;
+
 
 const int pwmFL = 22;
 const int pwmFR = 19;
@@ -29,6 +35,7 @@ float Roll, Pitch, Yaw;  // Stores attitude related variables.
 double r_rand = 180 / PI;
 
 Adafruit_BMP280 bme;
+Madgwick Drone_ahrs;
 
 float pressure = 0.0;
 
@@ -39,7 +46,8 @@ quat_t Quat;
 
 //Times
 float Elapsed_time=0.0;
-uint32_t S_time=0,E_time=0,D_time=0,S_time2=0,E_time2=0,D_time2=0;
+//
+volatile uint32_t S_time=0,E_time=0,D_time=0,S_time2=0,E_time2=0,D_time2=0;
 
 //Counter
 uint8_t AngleControlCounter=0;
@@ -57,28 +65,27 @@ float Phi,Theta,Psi;
 float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
 float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
 float Pref=0.0,Qref=0.0,Rref=0.0;
-const float Phi_trim   = 0.01;
-const float Theta_trim = 0.02;
+const float Phi_trim   = 0.0;
+const float Theta_trim = 0.0;
 const float Psi_trim   = 0.0;
-
-//RC
-uint16_t Chdata[18];
 
 //Log
 uint16_t LogdataCounter=0;
 uint8_t Logflag=0;
 volatile uint8_t Logoutputflag=0;
 float Log_time=0.0;
-const uint8_t DATANUM=38; //Log Data Number
-const uint32_t LOGDATANUM=48000;
-float Logdata[LOGDATANUM]={0.0};
+const uint8_t DATANUM=28; //Log Data Number
+const uint32_t LOGDATANUM=DATANUM*700;
+float Logdata[LOGDATANUM];
+
 
 //Machine state
-uint8_t LockMode=0;
+volatile uint8_t LockMode=0;
 float Disable_duty =0.10;
 float Flight_duty  =0.18;//0.2/////////////////
 uint8_t OverG_flag = 0;
 uint8_t Arm_flag = 0;
+volatile uint8_t Loop_flag = 0;
 
 //PID object and etc.
 Filter acc_filter;
@@ -88,7 +95,6 @@ PID r_pid;
 PID phi_pid;
 PID theta_pid;
 PID psi_pid;
-
 
 void loop_400Hz(void);
 void rate_control(void);
@@ -102,26 +108,51 @@ void motor_stop(void);
 uint8_t lock_com(void);
 uint8_t logdata_out_com(void);
 void printPQR(void);
+void set_duty_fr(float duty);
+void set_duty_fl(float duty);
+void set_duty_rr(float duty);
+void set_duty_rl(float duty);
+
+#define AVERAGE 200
+#define KALMANWAIT 600
+
+hw_timer_t * timer = NULL;
+void IRAM_ATTR onTimer() {
+  Loop_flag = 1;
+}
 
 
-#define AVERAGE 2000
-#define KALMANWAIT 6000
-
-void gpio_put(uint8_t p, uint8_t state)
+void gpio_put(CRGB p, uint8_t state)
 {
+  if (state ==1) M5.dis.drawpix(0, p);
+  else M5.dis.drawpix(0, 0x000000);
   return;
 }
 
 void init_atomfly(void)
 {
-  init_i2c();
+  SerialBT.begin("ATOMFLY");
+  rc_init();
+  Drone_ahrs.begin(400.0);
   M5.IMU.Init();
+  init_i2c();
+  Wire.begin(25,21,400000UL);
   Serial.println("VLX53LOX test started.");
   Serial.println(F("BMP280 test started...\n"));
-  M5.dis.drawpix(0, 0xff0000);
+  M5.dis.drawpix(0, BLUE);
   test_rangefinder();
   init_pwm();
-  M5.dis.drawpix(0, 0x0000f0);
+  control_init();
+
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, 2500, true);
+  timerAlarmEnable(timer);
+  
+  delay(500);
+  Arm_flag = 1;
+
+  //M5.dis.drawpix(0, 0x0000f0);
 }
 
 void init_i2c()
@@ -146,25 +177,6 @@ void init_i2c()
   Serial.print (count, DEC);        // numbers of devices
   Serial.println (" device(s).");
 
-}
-
-uint16_t get_distance(void)
-{
-  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
-
-  byte val = 0;
-  int cnt = 0;
-  while (cnt < 100) { // 1 second waiting time max
-    delay(10);
-    val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
-    if (val & 0x01) break;
-    cnt++;
-  }
-  if (cnt==100) return 9999; 
-
-  read_block_data_at(0x14, 12);
-  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
-  return dist;
 }
 
 void init_pwm(void)
@@ -218,18 +230,61 @@ void test_rangefinder(void)
   //End Range finder Test
 }
 
+uint16_t get_distance(void)
+{
+  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+
+  byte val = 0;
+  int cnt  = 0;
+  while (cnt < 1000) {  // 1 second waiting time max
+      val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
+      if (val & 0x01) break;
+      cnt++;
+  }
+  //if (val & 0x01)
+  //    Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
+  //else
+  //    Serial.println("VL53L0X is not ready");
+
+  read_block_data_at(0x14, 12);
+  //uint16_t acnt                  = makeuint16(gbuf[7], gbuf[6]);
+  //uint16_t scnt                  = makeuint16(gbuf[9], gbuf[8]);
+  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
+  //byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
+  return cnt;
+}
+
+
 //float pitch,roll,yaw;
 
 void atomfly_main(void)
 {
-
+  while(Loop_flag==0);
+  Loop_flag = 0;
+  E_time = S_time;
+  S_time = micros();
+  D_time = S_time - E_time;
   uint16_t dist;
   M5.IMU.getAccelData(&Ax, &Ay, &Az);
   M5.IMU.getGyroData(&Wp, &Wq, &Wr);
-  dist = get_distance();
-  //Roll = 0.0; Pitch = 0.0; Yaw =0.0;
-  Serial.printf("%5d %5.2f %5.2f %5.2f %5.2f %5.2f %5.2f\n", dist, Ax, Ay, Az, Wp, Wq, Wr);
-  delay(100);
+  Drone_ahrs.updateIMU(Wp, Wq, Wr, Ax, Ay, Az);
+  Phi = Drone_ahrs.getRoll();
+  Theta = Drone_ahrs.getPitch();
+  Psi = Drone_ahrs.getYaw();
+  
+  //dist = get_distance();
+  dist = 0;
+  
+  //Serial.printf("%7.3f  %6d %5d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\n",
+  // Elapsed_time, D_time, dist, Ax, Ay, Az, Wp, Wq, Wr, Phi, Theta, Psi);
+  Serial.printf("%6d\n",
+  D_time);
+
+  Elapsed_time = Elapsed_time + D_time/1000000.0;
+  if(D_time>1000)M5.dis.drawpix(0, 0xff0000);
+  else M5.dis.drawpix(0, 0x00ff00);
+
+
 /*
   float ax, ay, az;
   float gx, gy, gz;
@@ -283,55 +338,47 @@ void atomfly_main(void)
                   pressure);
     delay(20);
     
-    ledcAttachPin(pwmFL, FL_motor);
-    ledcAttachPin(pwmFR, FR_motor);
-    ledcAttachPin(pwmRL, RL_motor);
-    ledcAttachPin(pwmRR, RR_motor);
-    M5.dis.drawpix(0, 0x00ff00);
-    delay(1000);
-
-    ledcWrite(FL_motor, 100);
-    delay(100);
-    ledcWrite(FL_motor, 0);
-
-    ledcWrite(FR_motor, 100);
-    delay(100);
-    ledcWrite(FR_motor, 0);
-
-    ledcWrite(RL_motor, 100);
-    delay(100);
-    ledcWrite(RL_motor, 0);
-
-    ledcWrite(RR_motor, 100);
-    delay(100);
-    ledcWrite(RR_motor, 0);
-
-    delay(2000);
-    float duty=64;
-    ledcWrite(FL_motor, duty);
-    ledcWrite(FR_motor, duty);
-    ledcWrite(RL_motor, duty);
-    ledcWrite(RR_motor, duty);
-    delay(5000);
-    ledcWrite(FL_motor, 0);
-    ledcWrite(FR_motor, 0);
-    ledcWrite(RL_motor, 0);
-    ledcWrite(RR_motor, 0);
-
-  }
   #endif
 
 }
 
-
-
-void set_duty_fr(double duty){}
-void set_duty_fl(double duty){}
-void set_duty_rr(double duty){}
-void set_duty_rl(double duty){}
-
+void set_duty_fr(float duty){ledcWrite(FR_motor, (uint32_t)(255*duty));}
+void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
+void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
+void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz){}
 void madgwick_filter(quat_t* quat){}
+
+void sensor_read(void)
+{
+  float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
+
+  M5.IMU.getAccelData(&ax, &ay, &az);
+  M5.IMU.getGyroData(&gx, &gy, &gz);
+  Drone_ahrs.updateIMU(gx-Qbias*RAD_TO_DEG, gy-Pbias*RAD_TO_DEG, gz-Rbias*RAD_TO_DEG, ax, ay, az);
+
+  Ax = ay;
+  Ay = ax;
+  Az = az;
+  Wp = gy*DEG_TO_RAD;
+  Wq = gx*DEG_TO_RAD;
+  Wr = gz*DEG_TO_RAD;
+
+  Theta = Drone_ahrs.getRoll()*DEG_TO_RAD;
+  Phi = Drone_ahrs.getPitch()*DEG_TO_RAD;
+  Psi = Drone_ahrs.getYaw()*DEG_TO_RAD;
+  
+  acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
+  if (acc_norm>300.0) OverG_flag = 1;
+  Acc_norm = acc_filter.update(acc_norm);
+  rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
+  if (rate_norm > 40.0) OverG_flag =1;
+
+#if 0
+  Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
+   Elapsed_time, D_time, Ax, Ay, Az, Wp, Wq, Wr, Phi, Theta, Psi);
+#endif
+}
 
 
 
@@ -340,11 +387,19 @@ void madgwick_filter(quat_t* quat){}
 //This function is called from PWM Intrupt on 400Hz.
 void loop_400Hz(void)
 {
+
   static uint8_t led=1;
-  //S_time=time_us_32();
-  
+
+  SerialBT.println("Hello World");
+  while(Loop_flag==0);
+  Loop_flag = 0;
+
+
   //割り込みフラグリセット
   //pwm_clear_irq(2);
+
+  //Serial.printf("%1d %1d %4d %4d %4d %4d %4d\n",
+  //      Arm_flag, led, Chdata[THROTTLE], Chdata[RUDDER], Chdata[ELEVATOR], Chdata[AILERON], Chdata[LOG]);
 
 
   if (Arm_flag==0)
@@ -396,26 +451,10 @@ void loop_400Hz(void)
         Mx_ave = Mx_ave/AVERAGE;
         My_ave = My_ave/AVERAGE;
         Mz_ave = Mz_ave/AVERAGE;
+      }
 
-        //Xe(4,0) = Pbias;
-        //Xe(5,0) = Qbias;
-        //Xe(6,0) = Rbias;
-        //Xp(4,0) = Pbias;
-        //Xp(5,0) = Qbias;
-        //Xp(6,0) = Rbias;
-        //MN = Mx_ave;
-        //ME = My_ave;
-        //MD = Mz_ave;
-      }
-      
-      AngleControlCounter++;
-      if(AngleControlCounter==4)
-      {
-        AngleControlCounter=0;
-        //Multicore control
-        //sem_release(&sem);
-      
-      }
+      //AngleControl control      
+
       Phi_bias   += Phi;
       Theta_bias += Theta;
       Psi_bias   += Psi;
@@ -439,7 +478,7 @@ void loop_400Hz(void)
       {
         LockMode=3;//Disenable Flight
         led=0;
-        gpio_put(LED_PIN,led);
+        gpio_put(GREEN,led);
         return;
       }
       //Goto Flight
@@ -453,38 +492,38 @@ void loop_400Hz(void)
       return;
     }
     //LED Blink
-    gpio_put(LED_PIN, led);
+    gpio_put(RED, led);
     if(Logflag==1&&LedBlinkCounter<100){
       LedBlinkCounter++;
     }
     else
     {
       LedBlinkCounter=0;
-      led=!led;
+      if(Logflag==1)led=!led;
+      else led=1;
     }
    
-    //Rate Control (400Hz)
+    //Angle Control
+    angle_control();
+
+    //Rate Control
     rate_control();
-   
-    if(AngleControlCounter==4)
-    {
-      AngleControlCounter=0;
-      //Angle Control (100Hz)
-      //sem_release(&sem);
-    }
-    AngleControlCounter++;
+
+
+    //AngleControl control      
+
   }
   else if(Arm_flag==3)
   {
     motor_stop();
     OverG_flag = 0;
     if(LedBlinkCounter<10){
-      gpio_put(LED_PIN, 1);
+      gpio_put(GREEN, 1);
       LedBlinkCounter++;
     }
     else if(LedBlinkCounter<100)
     {
-      gpio_put(LED_PIN, 0);
+      gpio_put(GREEN, 0);
       LedBlinkCounter++;
     }
     else LedBlinkCounter=0;
@@ -523,9 +562,10 @@ void loop_400Hz(void)
   {
     motor_stop();
     Logoutputflag=1;
+    log_output();
     //LED Blink
-    gpio_put(LED_PIN, led);
-    if(LedBlinkCounter<400){
+    gpio_put(BLUE, led);
+    if(LedBlinkCounter<10){
       LedBlinkCounter++;
     }
     else
@@ -542,30 +582,22 @@ void control_init(void)
 {
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter( 2.0, 0.145, 0.028, 0.015, 0.0025);//3.4
-  q_pid.set_parameter( 2.1, 0.125, 0.028, 0.015, 0.0025);//3.8
+  p_pid.set_parameter( 3.0, 0.145, 0.028, 0.015, 0.0025);//2.0
+  q_pid.set_parameter( 3.1, 0.125, 0.028, 0.015, 0.0025);//2.1
   r_pid.set_parameter(12.0, 0.5, 0.008, 0.015, 0.0025);//9.4
   //Angle control
-  phi_pid.set_parameter  ( 5.5, 9.5, 0.025, 0.018, 0.01);//6.0
-  theta_pid.set_parameter( 5.5, 9.5, 0.025, 0.018, 0.01);//6.0
-  psi_pid.set_parameter  ( 0.0, 10.0, 0.010, 0.03, 0.01);
-  //Rate control
-  //p_pid.set_parameter(3.3656, 0.1, 0.0112, 0.01, 0.0025);
-  //q_pid.set_parameter(3.8042, 0.1, 0.0111, 0.01, 0.0025);
-  //r_pid.set_parameter(9.4341, 0.11, 0.0056, 0.01, 0.0025);
-  //Angle control
-  //phi_pid.set_parameter  ( 9.0   , 0.07, 0.0352,  0.01, 0.01);
-  //theta_pid.set_parameter( 8.5583, 0.1 , 0.0552,  0.01, 0.01);
-  //psi_pid.set_parameter  ( 9.0256, 0.11, 0.0034,  0.01, 0.01);
+  phi_pid.set_parameter  ( 5.5, 9.5, 0.025, 0.018, 0.0025);//
+  theta_pid.set_parameter( 5.5, 9.5, 0.025, 0.018, 0.0025);//
+  psi_pid.set_parameter  ( 0.0, 10.0, 0.010, 0.03, 0.0025);
 }
 
 uint8_t lock_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( Chdata[2]<CH3MIN+80 
-   && Chdata[0]>CH1MAX-80
-   && Chdata[3]<CH4MIN+80 
-   && Chdata[1]>CH2MAX-80)
+  if( Chdata[THROTTLE] == 0 
+   && Chdata[RUDDER]   < RUDDER_MIN*0.4
+   && Chdata[AILERON]  < AILERON_MIN*0.4 
+   && Chdata[ELEVATOR] > ELEVATOR_MAX*0.4 )
   { 
     chatta++;
     if(chatta>50){
@@ -583,14 +615,22 @@ uint8_t lock_com(void)
 
 }
 
+
+#define RUDDER 0
+#define ELEVATOR 1
+#define THROTTLE 2
+#define AILERON 3
+#define LOG 4
+
+
 uint8_t logdata_out_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( Chdata[4]<(CH5MAX+CH5MIN)*0.5 
-   && Chdata[2]<CH3MIN+80 
-   && Chdata[0]<CH1MIN+80
-   && Chdata[3]>CH4MAX-80 
-   && Chdata[1]>CH2MAX-80)
+  if( Chdata[LOG] == 0 
+   && Chdata[THROTTLE] == 0 
+   && Chdata[RUDDER]   > RUDDER_MAX*0.4
+   && Chdata[AILERON]  > AILERON_MAX*0.4 
+   && Chdata[ELEVATOR] > ELEVATOR_MAX*0.4)
   {
     chatta++;
     if(chatta>50){
@@ -624,11 +664,6 @@ void rate_control(void)
   //Read Sensor Value
   sensor_read();
 
-  //Get Bias
-  //Pbias = Xe(4, 0);
-  //Qbias = Xe(5, 0);
-  //Rbias = Xe(6, 0);
-
   //Control angle velocity
   p_rate = Wp - Pbias;
   q_rate = Wq - Qbias;
@@ -638,7 +673,8 @@ void rate_control(void)
   p_ref = Pref;
   q_ref = Qref;
   r_ref = Rref;
-  T_ref = 0.6 * BATTERY_VOLTAGE*(float)(Chdata[2]-CH3MIN)/(CH3MAX-CH3MIN);
+  //調整値0.8*電池電圧公称値*正規化スロットル値
+  T_ref = 0.8 * BATTERY_VOLTAGE*(float)Chdata[THROTTLE]/THROTTLE_MAX;
 
   //Error
   p_err = p_ref - p_rate;
@@ -653,15 +689,17 @@ void rate_control(void)
   //Motor Control
   // 1250/11.1=112.6
   // 1/11.1=0.0901
-  
-  FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)*0.0901;
-  FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)*0.0901;
-  RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)*0.0901;
-  RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)*0.0901;
-  //FR_duty = (T_ref)*0.0901;
-  //FL_duty = (T_ref)*0.0901;
-  //RR_duty = (T_ref)*0.0901;
-  //RL_duty = (T_ref)*0.0901;
+  //1/3.7=0.27027
+
+  //正規化Duty
+  FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)*0.27027;
+  FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)*0.27027;
+  RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)*0.27027;
+  RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)*0.27027;
+  //FR_duty = (T_ref)*0.27027;
+  //FL_duty = (T_ref)*0.27027;
+  //RR_duty = (T_ref)*0.27027;
+  //RL_duty = (T_ref)*0.27027;
   
   float minimum_duty=0.1;
   const float maximum_duty=0.95;
@@ -689,12 +727,13 @@ void rate_control(void)
     Pref=0.0;
     Qref=0.0;
     Rref=0.0;
-    Aileron_center  = Chdata[3];
-    Elevator_center = Chdata[1];
-    Rudder_center   = Chdata[0];
+    Aileron_center  = Chdata[AILERON];
+    Elevator_center = Chdata[ELEVATOR];
+    Rudder_center   = Chdata[RUDDER];
     Phi_bias   = Phi;
     Theta_bias = Theta;
     Psi_bias   = Psi;
+    
   }
   else
   {
@@ -703,18 +742,19 @@ void rate_control(void)
       set_duty_fl(FL_duty);
       set_duty_rr(RR_duty);
       set_duty_rl(RL_duty);
+      
     }
     else motor_stop();
-    //printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
+    //Serial.printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
   }
  
-  //printf("\n");
+  //Serial.printf("\n");
 
-  //printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
+  //Serial.printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
   //    Elapsed_time, fr_duty, fl_duty, rr_duty, rl_duty, p_rate, q_rate, r_rate);
-  //printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
+  //Serial.printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
   //    Elapsed_time, p_com, q_com, r_com, p_ref, q_ref, r_ref);
-  //printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
+  //Serial.printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
   //    Elapsed_time, Phi, Theta, Psi, Phi_bias, Theta_bias, Psi_bias);
   //Elapsed_time = Elapsed_time + 0.0025;
   //Logging
@@ -726,30 +766,14 @@ void angle_control(void)
   float phi_err,theta_err,psi_err;
   float q0,q1,q2,q3;
   float e23,e33,e13,e11,e12;
-  while(1)
-  {
-    //sem_acquire_blocking(&sem);
-    //sem_reset(&sem, 0);
-    //S_time2=time_us_32();
-    //kalman_filter();
-    madgwick_filter(&Quat);
-    q0 = Quat.q0;
-    q1 = Quat.q1;
-    q2 = Quat.q2;
-    q3 = Quat.q3;
-    e11 = q0*q0 + q1*q1 - q2*q2 - q3*q3;
-    e12 = 2*(q1*q2 + q0*q3);
-    e13 = 2*(q1*q3 - q0*q2);
-    e23 = 2*(q2*q3 + q0*q1);
-    e33 = q0*q0 - q1*q1 - q2*q2 + q3*q3;
-    Phi = atan2(e23, e33);
-    Theta = atan2(-e13, sqrt(e23*e23+e33*e33));
-    Psi = atan2(e12,e11);
+  static uint8_t cnt=0;
 
+  if (true)
+  {
     //Get angle ref 
-    Phi_ref   = Phi_trim   + 0.3 * M_PI *(float)(Chdata[3] - (CH4MAX+CH4MIN)*0.5)*2/(CH4MAX-CH4MIN);
-    Theta_ref = Theta_trim + 0.3 * M_PI *(float)(Chdata[1] - (CH2MAX+CH2MIN)*0.5)*2/(CH2MAX-CH2MIN);
-    Psi_ref   = Psi_trim   + 0.8 * M_PI *(float)(Chdata[0] - (CH1MAX+CH1MIN)*0.5)*2/(CH1MAX-CH1MIN);
+    Phi_ref   = Phi_trim   + 0.6 * M_PI *(float)Chdata[AILERON]*2/(AILERON_MAX-AILERON_MIN);
+    Theta_ref = Theta_trim + 0.6 * M_PI *(float)Chdata[ELEVATOR]*2/(ELEVATOR_MAX-ELEVATOR_MIN);
+    Psi_ref   = Psi_trim   + 0.8 * M_PI *(float)Chdata[RUDDER]*2/(RUDDER_MAX-RUDDER_MIN);
 
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);
@@ -773,27 +797,28 @@ void angle_control(void)
       Theta_bias = Theta;
       Psi_bias   = Psi;
       /////////////////////////////////////
+      //Serial.println("Disenable angle  control");
     }
     else
     {
       Pref = phi_pid.update(phi_err);
       Qref = theta_pid.update(theta_err);
       Rref = Psi_ref;//psi_pid.update(psi_err);//Yawは角度制御しない
+      //Serial.println("Enable angle  control");
+
     }
 
     //Logging
-    logging();
-
-    //E_time2=time_us_32();
-    //D_time2=E_time2-S_time2;
-
+    if (cnt==0)logging();
+    cnt++;
+    if(cnt==4 )cnt=0;
   }
 }
 
 void logging(void)
 {  
   //Logging
-  if(Chdata[4]>(CH5MAX+CH5MIN)*0.5)
+  if(Chdata[LOG]==1)
   { 
     if(Logflag==0)
     {
@@ -802,50 +827,37 @@ void logging(void)
     }
     if(LogdataCounter+DATANUM<LOGDATANUM)
     {
-      Logdata[LogdataCounter++]=Quat.q0;                  //1
-      Logdata[LogdataCounter++]=Quat.q1;                  //2
-      Logdata[LogdataCounter++]=Quat.q2;                  //3
-      Logdata[LogdataCounter++]=Quat.q3;                  //4
-      Logdata[LogdataCounter++]=Quat.q0;                  //5
-      Logdata[LogdataCounter++]=Quat.q0;                  //6
-      Logdata[LogdataCounter++]=Quat.q0;                  //7
-      Logdata[LogdataCounter++]=Wp;//-Pbias;              //8
-      Logdata[LogdataCounter++]=Wq;//-Qbias;              //9
-      Logdata[LogdataCounter++]=Wr;//-Rbias;              //10
+      Logdata[LogdataCounter++]=Wp;//-Pbias;              //1
+      Logdata[LogdataCounter++]=Wq;//-Qbias;              //2
+      Logdata[LogdataCounter++]=Wr;//-Rbias;              //3
+      Logdata[LogdataCounter++]=Ax;                       //4
+      Logdata[LogdataCounter++]=Ay;                       //5
+      Logdata[LogdataCounter++]=Az;                       //6
+      Logdata[LogdataCounter++]=Pref;                     //7
+      Logdata[LogdataCounter++]=Qref;                     //8
+      Logdata[LogdataCounter++]=Rref;                     //9
+      Logdata[LogdataCounter++]=Phi;             //10
 
-      Logdata[LogdataCounter++]=Ax;                       //11
-      Logdata[LogdataCounter++]=Ay;                       //12
-      Logdata[LogdataCounter++]=Az;                       //13
-      Logdata[LogdataCounter++]=Mx;                       //14
-      Logdata[LogdataCounter++]=My;                       //15
-      Logdata[LogdataCounter++]=Mz;                       //16
-      Logdata[LogdataCounter++]=Pref;                     //17
-      Logdata[LogdataCounter++]=Qref;                     //18
-      Logdata[LogdataCounter++]=Rref;                     //19
-      Logdata[LogdataCounter++]=Phi-Phi_bias;             //20
+      Logdata[LogdataCounter++]=Theta;         //11
+      Logdata[LogdataCounter++]=Psi;             //12
+      Logdata[LogdataCounter++]=Phi_ref;                  //13
+      Logdata[LogdataCounter++]=Theta_ref;                //14
+      Logdata[LogdataCounter++]=Psi_ref;                  //15
+      Logdata[LogdataCounter++]=P_com;                    //16
+      Logdata[LogdataCounter++]=Q_com;                    //17
+      Logdata[LogdataCounter++]=R_com;                    //18
+      Logdata[LogdataCounter++]=p_pid.m_integral;//m_filter_output;    //19
+      Logdata[LogdataCounter++]=q_pid.m_integral;//m_filter_output;    //20
 
-      Logdata[LogdataCounter++]=Theta-Theta_bias;         //21
-      Logdata[LogdataCounter++]=Psi-Psi_bias;             //22
-      Logdata[LogdataCounter++]=Phi_ref;                  //23
-      Logdata[LogdataCounter++]=Theta_ref;                //24
-      Logdata[LogdataCounter++]=Psi_ref;                  //25
-      Logdata[LogdataCounter++]=P_com;                    //26
-      Logdata[LogdataCounter++]=Q_com;                    //27
-      Logdata[LogdataCounter++]=R_com;                    //28
-      Logdata[LogdataCounter++]=p_pid.m_integral;//m_filter_output;    //29
-      Logdata[LogdataCounter++]=q_pid.m_integral;//m_filter_output;    //30
-
-      Logdata[LogdataCounter++]=r_pid.m_integral;//m_filter_output;    //31
-      Logdata[LogdataCounter++]=phi_pid.m_integral;//m_filter_output;  //32
-      Logdata[LogdataCounter++]=theta_pid.m_integral;//m_filter_output;//33
-      Logdata[LogdataCounter++]=Pbias;                    //34
-      Logdata[LogdataCounter++]=Qbias;                    //35
-
-      Logdata[LogdataCounter++]=Rbias;                    //36
-      Logdata[LogdataCounter++]=T_ref;                    //37
-      Logdata[LogdataCounter++]=Acc_norm;                 //38
-
-   
+      Logdata[LogdataCounter++]=r_pid.m_integral;//m_filter_output;    //21
+      Logdata[LogdataCounter++]=phi_pid.m_integral;//m_filter_output;  //22
+      Logdata[LogdataCounter++]=theta_pid.m_integral;//m_filter_output;//23
+      Logdata[LogdataCounter++]=Pbias;                    //24
+      Logdata[LogdataCounter++]=Qbias;                    //25
+      Logdata[LogdataCounter++]=Rbias;                    //26
+      Logdata[LogdataCounter++]=T_ref;                    //27
+      Logdata[LogdataCounter++]=Acc_norm;                 //28
+      
     }
     else Logflag=2;
   }
@@ -861,30 +873,16 @@ void logging(void)
 
 void log_output(void)
 {
-  if(LogdataCounter==0)
-  {
-    printPQR();
-    printf("#Roll rate PID gain\n");
-    p_pid.printGain();
-    printf("#Pitch rate PID gain\n");
-    q_pid.printGain();
-    printf("#Yaw rate PID gain\n");
-    r_pid.printGain();
-    printf("#Roll angle PID gain\n");
-    phi_pid.printGain();
-    printf("#Pitch angle PID gain\n");
-    theta_pid.printGain();
-  }
   if(LogdataCounter+DATANUM<LOGDATANUM)
   {
     //LockMode=0;
-    printf("%10.2f ", Log_time);
+    Serial.printf("%10.2f ", Log_time);
     Log_time=Log_time + 0.01;
     for (uint8_t i=0;i<DATANUM;i++)
     {
-      printf("%12.5f",Logdata[LogdataCounter+i]);
+      Serial.printf("%12.5f",Logdata[LogdataCounter+i]);
     }
-    printf("\n");
+    Serial.printf("\r\n");
     LogdataCounter=LogdataCounter + DATANUM;
   }
   else 
@@ -902,41 +900,18 @@ void gyroCalibration(void)
 {
   float wp,wq,wr;
   float sump,sumq,sumr;
-  uint16_t N=400;
+  uint16_t N=1000;
   for(uint16_t i=0;i<N;i++)
   {
     sensor_read();
     sump=sump+Wp;
     sumq=sumq+Wq;
     sumr=sumr+Wr;
+    delay(1);
   }
   Pbias=sump/N;
   Qbias=sumq/N;
   Rbias=sumr/N;
-}
-
-void sensor_read(void)
-{
-  float mx1, my1, mz1, mag_norm, acc_norm, rate_norm;
-
-  imu_mag_data_read(&Ax, &Ay, &Az, &Wp, &Wq, &Wr);
-  //Ax =-acceleration_mg[0]*GRAV*0.001;
-  //Ay =-acceleration_mg[1]*GRAV*0.001;
-  //Az = acceleration_mg[2]*GRAV*0.001;
-  //Wp = angular_rate_mdps[0]*M_PI*5.55555555e-6;//5.5.....e-6=1/180/1000
-  //Wq = angular_rate_mdps[1]*M_PI*5.55555555e-6;
-  //Wr =-angular_rate_mdps[2]*M_PI*5.55555555e-6;
-  //Mx0 =-magnetic_field_mgauss[0];
-  //My0 = magnetic_field_mgauss[1];
-  //Mz0 =-magnetic_field_mgauss[2];
-
-  
-  acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>250.0) OverG_flag = 1;
-  Acc_norm = acc_filter.update(acc_norm);
-  rate_norm = sqrt(Wp*Wp + Wq*Wq + Wr*Wr);
-  if (rate_norm > 6.0) OverG_flag =1;
-
 }
 
 void variable_init(void)
@@ -949,7 +924,7 @@ void printPQR(void)
 
 void output_data(void)
 {
-  printf("%9.3f,"
+  Serial.printf("%9.3f,"
          "%13.8f,%13.8f,%13.8f,%13.8f,"
          "%13.8f,%13.8f,%13.8f,"
          "%6u,%6u,"
@@ -971,7 +946,7 @@ void output_data(void)
 }
 void output_sensor_raw_data(void)
 {
-  printf("%9.3f,"
+  Serial.printf("%9.3f,"
          "%13.5f,%13.5f,%13.5f,"
          "%13.5f,%13.5f,%13.5f,"
          "%13.5f,%13.5f,%13.5f"
@@ -1035,7 +1010,7 @@ void PID::i_reset(void)
 }
 void PID::printGain(void)
 {
-  printf("#Kp:%8.4f Ti:%8.4f Td:%8.4f Filter T:%8.4f h:%8.4f\n",m_kp,m_ti,m_td,m_filter_time_constant,m_h);
+  Serial.printf("#Kp:%8.4f Ti:%8.4f Td:%8.4f Filter T:%8.4f h:%8.4f\n",m_kp,m_ti,m_td,m_filter_time_constant,m_h);
 }
 
 float PID::filter(float x)
