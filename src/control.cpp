@@ -12,10 +12,10 @@
 #include "rc.hpp"
 #include "control.hpp"
 
-#include "BluetoothSerial.h"
 
-BluetoothSerial SerialBT;
+//#include <BluetoothSerial.h>
 
+//BluetoothSerial SerialBT;
 
 const int pwmFL = 22;
 const int pwmFR = 19;
@@ -102,7 +102,6 @@ void sensor_read(void);
 void angle_control(void);
 void output_data(void);
 void output_sensor_raw_data(void);
-//void kalman_filter(void);
 void logging(void);
 void motor_stop(void);
 uint8_t lock_com(void);
@@ -131,17 +130,20 @@ void gpio_put(CRGB p, uint8_t state)
 
 void init_atomfly(void)
 {
-  SerialBT.begin("ATOMFLY");
-  rc_init();
-  Drone_ahrs.begin(400.0);
-  M5.IMU.Init();
+// シリアル通信機能の設定
+
   init_i2c();
+  Serial.begin(115200);
+  Serial2.begin(115200, SERIAL_8O1, 26, 32);
+  rc_init();
+  M5.IMU.Init();
   Wire.begin(25,21,400000UL);
   Serial.println("VLX53LOX test started.");
   Serial.println(F("BMP280 test started...\n"));
   M5.dis.drawpix(0, BLUE);
   test_rangefinder();
   init_pwm();
+  Drone_ahrs.begin(400.0);
   control_init();
 
   timer = timerBegin(0, 80, true);
@@ -157,7 +159,7 @@ void init_atomfly(void)
 
 void init_i2c()
 {
-  //Wire.begin();          // join i2c bus (address optional for master)
+  Wire.begin(25,21);          // join i2c bus (address optional for master)
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
   for (byte i = 8; i < 120; i++)
@@ -254,94 +256,6 @@ uint16_t get_distance(void)
   return cnt;
 }
 
-
-//float pitch,roll,yaw;
-
-void atomfly_main(void)
-{
-  while(Loop_flag==0);
-  Loop_flag = 0;
-  E_time = S_time;
-  S_time = micros();
-  D_time = S_time - E_time;
-  uint16_t dist;
-  M5.IMU.getAccelData(&Ax, &Ay, &Az);
-  M5.IMU.getGyroData(&Wp, &Wq, &Wr);
-  Drone_ahrs.updateIMU(Wp, Wq, Wr, Ax, Ay, Az);
-  Phi = Drone_ahrs.getRoll();
-  Theta = Drone_ahrs.getPitch();
-  Psi = Drone_ahrs.getYaw();
-  
-  //dist = get_distance();
-  dist = 0;
-  
-  //Serial.printf("%7.3f  %6d %5d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\n",
-  // Elapsed_time, D_time, dist, Ax, Ay, Az, Wp, Wq, Wr, Phi, Theta, Psi);
-  Serial.printf("%6d\n",
-  D_time);
-
-  Elapsed_time = Elapsed_time + D_time/1000000.0;
-  if(D_time>1000)M5.dis.drawpix(0, 0xff0000);
-  else M5.dis.drawpix(0, 0x00ff00);
-
-
-/*
-  float ax, ay, az;
-  float gx, gy, gz;
-  dist = get_distance();
-  M5.IMU.getAccelData(&ax, &ay, &az);
-  //M5.IMU.getGyroData(&gx, &gy, &gz);
-
-  Serial.print(dist);
-  Serial.print(" ");
-  Serial.print(ax);
-  Serial.print(" ");
-  Serial.print(ay);
-  Serial.print(" ");
-  Serial.println(az);
-  /*
-  Serial.print(" ");
-  Serial.print(gx);
-  Serial.print(" ");
-  Serial.print(gy);
-  Serial.print(" ");
-  Serial.println(gz);
-*/
-//M5.update();
-
-  #if 0
-  if (M5.Btn.wasReleased() || M5.Btn.pressedFor(500)) {
-    M5.dis.drawpix(0, 0xfff000);
-
-    
-
-    //Serial.println("IMU Ready");
-    M5.IMU.getAttitude(&pitch,
-                       &roll);  // Read the attitude (pitch, heading) of the IMU
-                                // and store it in relevant variables.
-                                // 读取IMU的姿态（俯仰、航向）并存储至相关变量
-    double arc = atan2(pitch, roll) * r_rand + 180;
-    double valIMU = sqrt(pitch * pitch + roll * roll);
-    //Serial.println("hoge");
-    Serial.printf("%.2f,%.2f,%.2f,%.2f\n", pitch, roll, arc,
-                  valIMU);  // serial port output the formatted string.  串口输出
-
-    
-    while (!bme.begin(0x76)) {  //初始化bme传感器.  Init the sensor of bme
-        Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-        M5.dis.drawpix(0, 0xff0000);
-    }
-    M5.dis.drawpix(0, 0xfff000);
-    pressure = bme.readPressure();  // Stores the pressure gained by BMP.
-                                    // 存储bmp获取到的压强
-    Serial.printf("Pressure:%2.0fPa\n",
-                  pressure);
-    delay(20);
-    
-  #endif
-
-}
-
 void set_duty_fr(float duty){ledcWrite(FR_motor, (uint32_t)(255*duty));}
 void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
 void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
@@ -390,10 +304,8 @@ void loop_400Hz(void)
 
   static uint8_t led=1;
 
-  SerialBT.println("Hello World");
   while(Loop_flag==0);
   Loop_flag = 0;
-
 
   //割り込みフラグリセット
   //pwm_clear_irq(2);
@@ -578,18 +490,27 @@ void loop_400Hz(void)
   //D_time=E_time-S_time;
 }
 
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
 void control_init(void)
 {
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter( 3.0, 0.145, 0.028, 0.015, 0.0025);//2.0
-  q_pid.set_parameter( 3.1, 0.125, 0.028, 0.015, 0.0025);//2.1
-  r_pid.set_parameter(12.0, 0.5, 0.008, 0.015, 0.0025);//9.4
+  p_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);//2.0
+  q_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);//2.1
+  r_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);//9.4
   //Angle control
-  phi_pid.set_parameter  ( 5.5, 9.5, 0.025, 0.018, 0.0025);//
-  theta_pid.set_parameter( 5.5, 9.5, 0.025, 0.018, 0.0025);//
-  psi_pid.set_parameter  ( 0.0, 10.0, 0.010, 0.03, 0.0025);
+  phi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.018, 0.0025);//
+  theta_pid.set_parameter( 3.0, 10000, 0.0, 0.018, 0.0025);//
+  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.03, 0.0025);
 }
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+
 
 uint8_t lock_com(void)
 {
@@ -876,13 +797,13 @@ void log_output(void)
   if(LogdataCounter+DATANUM<LOGDATANUM)
   {
     //LockMode=0;
-    Serial.printf("%10.2f ", Log_time);
+    Serial2.printf("%10.2f ", Log_time);
     Log_time=Log_time + 0.01;
     for (uint8_t i=0;i<DATANUM;i++)
     {
-      Serial.printf("%12.5f",Logdata[LogdataCounter+i]);
+      Serial2.printf("%12.5f",Logdata[LogdataCounter+i]);
     }
-    Serial.printf("\r\n");
+    Serial2.printf("\r\n");
     LogdataCounter=LogdataCounter + DATANUM;
   }
   else 
@@ -908,7 +829,7 @@ void gyroCalibration(void)
     sumq=sumq+Wq;
     sumr=sumr+Wr;
     delay(1);
-  }
+  } 
   Pbias=sump/N;
   Qbias=sumq/N;
   Rbias=sumr/N;

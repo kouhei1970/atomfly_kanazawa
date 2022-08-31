@@ -65,7 +65,6 @@ class Filter
 
 //グローバル関数の宣言
 void init_atomfly(void);
-void atomfly_main(void);
 void test_rangefinder(void);
 void init_i2c();
 void init_pwm();

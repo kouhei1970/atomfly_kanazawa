@@ -9,7 +9,8 @@
 
 
 void setup() {  
-  M5.begin(true, true, true);
+  M5.begin(true, false, true);
+  //SerialBT.begin("ATOMFLY");
   init_atomfly();
   delay(1000);
 }

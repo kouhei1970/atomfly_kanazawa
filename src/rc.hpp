@@ -24,6 +24,7 @@
 
 void rc_init(void);
 void rc_demo(void);
+void rc_end(void);
 
 extern volatile int8_t Chdata[18];
 

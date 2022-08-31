@@ -92,12 +92,17 @@ void onConnect(){
     Serial.println("Connected.");
 }
 
-void rc_init()
+void rc_init(void)
 {
     Ps3.attach(notify);
     Ps3.attachOnConnect(onConnect);
     Ps3.begin(BTID);
     Serial.println("Ready.");
+}
+
+void rc_end(void)
+{
+    Ps3.end();
 }
 
 void rc_demo()
