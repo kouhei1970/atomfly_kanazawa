@@ -10,7 +10,6 @@
 
 void setup() {  
   M5.begin(true, false, true);
-  //SerialBT.begin("ATOMFLY");
   init_atomfly();
   delay(1000);
 }
@@ -19,8 +18,4 @@ void setup() {
 
 void loop() {
   loop_400Hz();
-  //rc_demo();
-  //atomfly_main();
-  //M5.dis.drawpix(0, 0xff00ff);
-  //delay(33);
 }
