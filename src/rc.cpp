@@ -5,11 +5,7 @@ int player = 0;
 int battery = 0;
 
 //RC
-volatile float Stick_throttle;
-volatile float Stick_roll;
-volatile float Stick_pitch;
-volatile float Stick_yaw;
-volatile uint8_t Log_sw;
+volatile float Stick[16];
 
 
 void notify()
@@ -18,7 +14,7 @@ void notify()
     if( Ps3.event.button_down.circle )
     {
         //Serial.println("Started pressing the circle button");
-        Log_sw = 1;
+        Stick[LOG] = 1;
     }
     if( Ps3.event.button_up.circle )
     {
@@ -27,12 +23,42 @@ void notify()
     if( Ps3.event.button_down.cross )
     {
         //Serial.println("Started pressing the cross button");
-        Log_sw = 0;
+        Stick[LOG] = 0;
     }
     if( Ps3.event.button_up.cross )
     {
         //Serial.println("Released the cross button");
     }
+
+    if( Ps3.event.button_down.up )
+    {
+        Stick[DPAD_UP]=1;
+    }
+    if( Ps3.event.button_up.up ){
+        Stick[DPAD_UP]=0;
+    }
+    if( Ps3.event.button_down.down )
+    {
+        Stick[DPAD_DOWN]=1;
+    }
+    if( Ps3.event.button_up.down ){
+        Stick[DPAD_DOWN]=0;
+    }
+    if( Ps3.event.button_down.left )
+    {
+        Stick[DPAD_LEFT]=1;
+    }
+    if( Ps3.event.button_up.left ){
+        Stick[DPAD_LEFT]=0;
+    }
+    if( Ps3.event.button_down.right )
+    {
+        Stick[DPAD_RIGHT]=1;
+    }
+    if( Ps3.event.button_up.right ){
+        Stick[DPAD_RIGHT]=0;
+    }
+
 
     //---------- Digital select/start/ps button events ---------
     if( Ps3.event.button_down.select )
@@ -81,21 +107,21 @@ void notify()
     }
 
     //Throttle
-    Stick_throttle = (float)Ps3.data.analog.stick.ry/THROTTLE_MIN;
-    if (Stick_throttle < 0) Stick_throttle = 0;
+    Stick[THROTTLE] = (float)Ps3.data.analog.stick.ry/THROTTLE_MIN;
+    if (Stick[THROTTLE] < 0) Stick[THROTTLE] = 0;
     //Rudder
-    Stick_yaw =  Ps3.data.analog.stick.rx;
-    if (Stick_yaw>0) Stick_yaw =  Stick_yaw/RUDDER_MAX;
-    else if (Stick_yaw<0) Stick_yaw = -Stick_yaw/RUDDER_MIN;
-    Stick_yaw = -Stick_yaw;
+    Stick[RUDDER] =  Ps3.data.analog.stick.rx;
+    if (Stick[RUDDER]>0) Stick[RUDDER] =  Stick[RUDDER]/RUDDER_MAX;
+    else if (Stick[RUDDER]<0) Stick[RUDDER] = -Stick[RUDDER]/RUDDER_MIN;
+    Stick[RUDDER] = -Stick[RUDDER];
     //Elevator
-    Stick_pitch =  Ps3.data.analog.stick.ly;
-    if (Stick_pitch>0) Stick_pitch =  Stick_pitch/ELEVATOR_MAX;
-    else if (Stick_pitch<0) Stick_pitch = -Stick_pitch/ELEVATOR_MIN;
+    Stick[ELEVATOR] =  Ps3.data.analog.stick.ly;
+    if (Stick[ELEVATOR]>0) Stick[ELEVATOR] =  Stick[ELEVATOR]/ELEVATOR_MAX;
+    else if (Stick[ELEVATOR]<0) Stick[ELEVATOR] = -Stick[ELEVATOR]/ELEVATOR_MIN;
     //Aileron
-    Stick_roll  =   Ps3.data.analog.stick.lx;
-    if (Stick_roll>0) Stick_roll = Stick_roll/RUDDER_MAX;
-    else if (Stick_roll<0) Stick_roll = - Stick_roll/RUDDER_MIN;
+    Stick[AILERON]  =   Ps3.data.analog.stick.lx;
+    if (Stick[AILERON]>0) Stick[AILERON] = Stick[AILERON]/AILERON_MAX;
+    else if (Stick[AILERON]<0) Stick[AILERON] = - Stick[AILERON]/AILERON_MIN;
 
     //Serial.printf("%6.3f %6.3f %6.3f %6.3f %4d\n",Stick_throttle, Stick_roll, Stick_pitch, Stick_yaw, Log_sw);
 

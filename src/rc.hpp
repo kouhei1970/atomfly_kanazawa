@@ -6,7 +6,10 @@
 #define THROTTLE 2
 #define AILERON 3
 #define LOG 4
-#define LED_PIN 13
+#define DPAD_UP 5
+#define DPAD_DOWN 6
+#define DPAD_LEFT 7
+#define DPAD_RIGHT 8
 #define RUDDER_MAX 127
 #define RUDDER_MIN -128
 #define ELEVATOR_MAX 127
@@ -26,10 +29,7 @@ void rc_init(void);
 void rc_demo(void);
 void rc_end(void);
 
-extern volatile float Stick_throttle;
-extern volatile float Stick_roll;
-extern volatile float Stick_pitch;
-extern volatile float Stick_yaw;
-extern volatile uint8_t Log_sw;
+extern volatile float Stick[16];
+
 
 #endif

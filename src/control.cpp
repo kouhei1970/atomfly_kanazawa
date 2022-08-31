@@ -65,9 +65,9 @@ float Phi,Theta,Psi;
 float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
 float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
 float Pref=0.0,Qref=0.0,Rref=0.0;
-const float Phi_trim   = 0.0;
-const float Theta_trim = 0.0;
-const float Psi_trim   = 0.0;
+float Phi_trim   = 0.0;
+float Theta_trim = 0.0;
+float Psi_trim   = 0.0;
 
 //Log
 uint16_t LogdataCounter=0;
@@ -283,10 +283,10 @@ void sensor_read(void)
   Psi = Drone_ahrs.getYaw()*DEG_TO_RAD;
   
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>300.0) OverG_flag = 1;
+  if (acc_norm>25.0) OverG_flag = 1;
   Acc_norm = acc_filter.update(acc_norm);
   rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
-  if (rate_norm > 40.0) OverG_flag =1;
+  if (rate_norm > 50.0) OverG_flag =1;
 
 #if 0
   Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
@@ -329,9 +329,9 @@ void loop_400Hz(void)
     {
       //Sensor Read
       sensor_read();
-      Aileron_center  += Stick_roll;
-      Elevator_center += Stick_pitch;
-      Rudder_center   += Stick_yaw;
+      Aileron_center  += Stick[AILERON];
+      Elevator_center += Stick[ELEVATOR];
+      Rudder_center   += Stick[RUDDER];
       Pbias += Wp;
       Qbias += Wq;
       Rbias += Wr;
@@ -434,9 +434,9 @@ void loop_400Hz(void)
     else LedBlinkCounter=0;
     
     //Get Stick Center 
-    Aileron_center  = Stick_roll;
-    Elevator_center = Stick_pitch;
-    Rudder_center   = Stick_yaw;
+    Aileron_center  = Stick[AILERON];
+    Elevator_center = Stick[ELEVATOR];
+    Rudder_center   = Stick[RUDDER];
   
     if(LockMode==0)
     {
@@ -508,10 +508,10 @@ void control_init(void)
 uint8_t lock_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( Log_sw == 0 
-   && Stick_yaw   < -0.4
-   && Stick_roll  < -0.4 
-   && Stick_pitch > 0.4 )
+  if( Stick[LOG] == 0 
+   && Stick[RUDDER]   < -0.4
+   && Stick[AILERON]  < -0.4 
+   && Stick[ELEVATOR] > 0.4 )
   { 
     chatta++;
     if(chatta>50){
@@ -540,11 +540,11 @@ uint8_t lock_com(void)
 uint8_t logdata_out_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( Log_sw == 0 
-   && Stick_throttle == 0 
-   && Stick_yaw  > 0.4
-   && Stick_roll > 0.4 
-   && Stick_pitch > 0.4)
+  if( Stick[LOG] == 0 
+   && Stick[THROTTLE] == 0 
+   && Stick[RUDDER]  > 0.4
+   && Stick[AILERON] > 0.4 
+   && Stick[ELEVATOR] > 0.4)
   {
     chatta++;
     if(chatta>50){
@@ -588,7 +588,7 @@ void rate_control(void)
   q_ref = Qref;
   r_ref = Rref;
   //調整値0.8*電池電圧公称値*正規化スロットル値
-  T_ref = 0.8 * BATTERY_VOLTAGE*Stick_throttle;
+  T_ref = 0.8 * BATTERY_VOLTAGE*Stick[THROTTLE];
 
   //Error
   p_err = p_ref - p_rate;
@@ -600,12 +600,16 @@ void rate_control(void)
   Q_com = q_pid.update(q_err);
   R_com = r_pid.update(r_err);
 
+  //Trim
+  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.00001 - Stick[DPAD_LEFT]*0.00001;
+  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.00001 + Stick[DPAD_DOWN]*0.00001; 
+
   //Motor Control
   //正規化Duty
-  FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)/BATTERY_VOLTAGE;
-  FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE;
-  RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE;
-  RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE;
+  FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)/BATTERY_VOLTAGE-Phi_trim+Theta_trim;
+  FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE+Phi_trim+Theta_trim;
+  RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE-Phi_trim-Theta_trim;
+  RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE+Phi_trim-Theta_trim;
   
   float minimum_duty=0.1;
   const float maximum_duty=0.95;
@@ -633,9 +637,9 @@ void rate_control(void)
     Pref=0.0;
     Qref=0.0;
     Rref=0.0;
-    Aileron_center  = Stick_roll;
-    Elevator_center = Stick_pitch;
-    Rudder_center   = Stick_yaw;
+    Aileron_center  = Stick[AILERON];
+    Elevator_center = Stick[ELEVATOR];
+    Rudder_center   = Stick[RUDDER];
     Phi_bias   = Phi;
     Theta_bias = Theta;
     Psi_bias   = Psi;
@@ -677,9 +681,9 @@ void angle_control(void)
   if (true)
   {
     //Get angle ref 
-    Phi_ref   = Phi_trim   + 0.6 * M_PI *Stick_roll;
-    Theta_ref = Theta_trim + 0.6 * M_PI *Stick_pitch;
-    Psi_ref   = Psi_trim   + 0.8 * M_PI *Stick_yaw;
+    Phi_ref   = 0.6 * M_PI *Stick[AILERON];
+    Theta_ref = 0.6 * M_PI *Stick[ELEVATOR];
+    Psi_ref   = 0.8 * M_PI *Stick[RUDDER];
 
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);
@@ -695,9 +699,9 @@ void angle_control(void)
       phi_pid.reset();
       theta_pid.reset();
       psi_pid.reset();
-      Aileron_center  = Stick_roll;
-      Elevator_center = Stick_pitch;
-      Rudder_center   = Stick_yaw;
+      Aileron_center  = Stick[AILERON];
+      Elevator_center = Stick[ELEVATOR];
+      Rudder_center   = Stick[RUDDER];
       /////////////////////////////////////
       Phi_bias   = Phi;
       Theta_bias = Theta;
@@ -724,7 +728,7 @@ void angle_control(void)
 void logging(void)
 {  
   //Logging
-  if(Log_sw == 1)
+  if(Stick[LOG] == 1)
   { 
     if(Logflag==0)
     {
