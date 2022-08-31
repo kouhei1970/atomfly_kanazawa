@@ -26,7 +26,10 @@ void rc_init(void);
 void rc_demo(void);
 void rc_end(void);
 
-extern volatile int8_t Chdata[18];
-
+extern volatile float Stick_throttle;
+extern volatile float Stick_roll;
+extern volatile float Stick_pitch;
+extern volatile float Stick_yaw;
+extern volatile uint8_t Log_sw;
 
 #endif

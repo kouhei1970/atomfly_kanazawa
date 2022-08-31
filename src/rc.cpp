@@ -5,7 +5,11 @@ int player = 0;
 int battery = 0;
 
 //RC
-volatile int8_t Chdata[18];
+volatile float Stick_throttle;
+volatile float Stick_roll;
+volatile float Stick_pitch;
+volatile float Stick_yaw;
+volatile uint8_t Log_sw;
 
 
 void notify()
@@ -14,7 +18,7 @@ void notify()
     if( Ps3.event.button_down.circle )
     {
         //Serial.println("Started pressing the circle button");
-        Chdata[LOG] = 1;
+        Log_sw = 1;
     }
     if( Ps3.event.button_up.circle )
     {
@@ -23,7 +27,7 @@ void notify()
     if( Ps3.event.button_down.cross )
     {
         //Serial.println("Started pressing the cross button");
-        Chdata[LOG] = 0;
+        Log_sw = 0;
     }
     if( Ps3.event.button_up.cross )
     {
@@ -76,15 +80,24 @@ void notify()
         else Serial.println("UNDEFINED");
     }
 
-    Chdata[THROTTLE] = -Ps3.data.analog.stick.ry;
-    if (Chdata[THROTTLE]<0)Chdata[THROTTLE]=0;
-    Chdata[RUDDER]   =  -Ps3.data.analog.stick.rx;
-    Chdata[ELEVATOR] =   Ps3.data.analog.stick.ly;
-    Chdata[AILERON]  =   Ps3.data.analog.stick.lx;
+    //Throttle
+    Stick_throttle = (float)Ps3.data.analog.stick.ry/THROTTLE_MIN;
+    if (Stick_throttle < 0) Stick_throttle = 0;
+    //Rudder
+    Stick_yaw =  Ps3.data.analog.stick.rx;
+    if (Stick_yaw>0) Stick_yaw =  Stick_yaw/RUDDER_MAX;
+    else if (Stick_yaw<0) Stick_yaw = -Stick_yaw/RUDDER_MIN;
+    Stick_yaw = -Stick_yaw;
+    //Elevator
+    Stick_pitch =  Ps3.data.analog.stick.ly;
+    if (Stick_pitch>0) Stick_pitch =  Stick_pitch/ELEVATOR_MAX;
+    else if (Stick_pitch<0) Stick_pitch = -Stick_pitch/ELEVATOR_MIN;
+    //Aileron
+    Stick_roll  =   Ps3.data.analog.stick.lx;
+    if (Stick_roll>0) Stick_roll = Stick_roll/RUDDER_MAX;
+    else if (Stick_roll<0) Stick_roll = - Stick_roll/RUDDER_MIN;
 
-
-    //Serial.printf("%4d %4d %4d %4d %4d\n",
-    //    Chdata[THROTTLE], Chdata[RUDDER], Chdata[ELEVATOR], Chdata[AILERON], Chdata[LOG]);
+    //Serial.printf("%6.3f %6.3f %6.3f %6.3f %4d\n",Stick_throttle, Stick_roll, Stick_pitch, Stick_yaw, Log_sw);
 
 }
 
