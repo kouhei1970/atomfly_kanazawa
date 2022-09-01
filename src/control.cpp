@@ -519,14 +519,6 @@ uint8_t lock_com(void)
 
 }
 
-
-#define RUDDER 0
-#define ELEVATOR 1
-#define THROTTLE 2
-#define AILERON 3
-#define LOG 4
-
-
 uint8_t logdata_out_com(void)
 {
   static uint8_t chatta=0,state=0;
