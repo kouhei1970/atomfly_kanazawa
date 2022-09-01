@@ -1,17 +1,13 @@
 #ifndef CONTROL_HPP
 #define CONTROL_HPP
 
-
-//using Eigen::MatrixXd;
-//using Eigen::MatrixXf;
-//using Eigen::Matrix;
-//using Eigen::PartialPivLU;
-//using namespace Eigen;
-
 #define BATTERY_VOLTAGE (3.7)
 #define BLUE 0x0000ff
 #define RED 0xff0000
 #define GREEN 0x00ff00
+
+#define AVERAGE 200
+#define KALMANWAIT 600
 
 typedef struct
 {
@@ -81,7 +77,6 @@ void set_duty_fr(float duty);
 void set_duty_fl(float duty);
 void set_duty_rr(float duty);
 void set_duty_rl(float duty);
-void madgwick_filter(quat_t* quat);
 void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz);
 
 //グローバル変数

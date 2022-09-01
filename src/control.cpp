@@ -1,21 +1,12 @@
 #include <Arduino.h>
 #include <M5Atom.h>
 #include "vl53l0x.h"
-//#include "M5_ENV.h"
 #include "Adafruit_Sensor.h"
 #include <Adafruit_BMP280.h>
-//#include <stdio.h>
-#include <stdint.h>
 #include <math.h>
 #include <MadgwickAHRS.h>
-
 #include "rc.hpp"
 #include "control.hpp"
-
-
-//#include <BluetoothSerial.h>
-
-//BluetoothSerial SerialBT;
 
 const int pwmFL = 22;
 const int pwmFR = 19;
@@ -78,7 +69,6 @@ const uint8_t DATANUM=28; //Log Data Number
 const uint32_t LOGDATANUM=DATANUM*700;
 float Logdata[LOGDATANUM];
 
-
 //Machine state
 volatile uint8_t LockMode=0;
 float Disable_duty =0.10;
@@ -88,13 +78,13 @@ uint8_t Arm_flag = 0;
 volatile uint8_t Loop_flag = 0;
 
 //PID object and etc.
-Filter acc_filter;
 PID p_pid;
 PID q_pid;
 PID r_pid;
 PID phi_pid;
 PID theta_pid;
 PID psi_pid;
+Filter acc_filter;
 
 void loop_400Hz(void);
 void rate_control(void);
@@ -112,14 +102,10 @@ void set_duty_fl(float duty);
 void set_duty_rr(float duty);
 void set_duty_rl(float duty);
 
-#define AVERAGE 200
-#define KALMANWAIT 600
-
 hw_timer_t * timer = NULL;
 void IRAM_ATTR onTimer() {
   Loop_flag = 1;
 }
-
 
 void gpio_put(CRGB p, uint8_t state)
 {
@@ -130,8 +116,6 @@ void gpio_put(CRGB p, uint8_t state)
 
 void init_atomfly(void)
 {
-// シリアル通信機能の設定
-
   init_i2c();
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
@@ -153,8 +137,6 @@ void init_atomfly(void)
   
   delay(500);
   Arm_flag = 1;
-
-  //M5.dis.drawpix(0, 0x0000f0);
 }
 
 void init_i2c()
@@ -178,13 +160,10 @@ void init_i2c()
   Serial.print ("Found ");      
   Serial.print (count, DEC);        // numbers of devices
   Serial.println (" device(s).");
-
 }
 
 void init_pwm(void)
 {
-  //ledcSetup(ledChannel1, freq, resolution);
-  //ledcSetup(ledChannel2, freq, resolution);
   ledcSetup(FL_motor, freq, resolution);
   ledcSetup(FR_motor, freq, resolution);
   ledcSetup(RL_motor, freq, resolution);
@@ -261,7 +240,6 @@ void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
 void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
 void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz){}
-void madgwick_filter(quat_t* quat){}
 
 void sensor_read(void)
 {
@@ -413,10 +391,6 @@ void loop_400Hz(void)
 
     //Rate Control
     rate_control();
-
-
-    //AngleControl control      
-
   }
   else if(Arm_flag==3)
   {
@@ -479,25 +453,42 @@ void loop_400Hz(void)
       led=!led;
     }
   }
-  //E_time=time_us_32();
-  //D_time=E_time-S_time;
 }
 
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
+//  PID control gain setting
+//
+//  Sets the gain of PID control.
+//  
+//  Function usage
+//  PID.set_parameter(PGAIN, IGAIN, DGAIN, TC, STEP)
+//
+//  PGAIN: PID Proportional Gain
+//  IGAIN: PID Integral Gain
+//   *The larger the value of integral gain, the smaller the effect of integral control.
+//  DGAIN: PID Differential Gain
+//  TC:    Time constant for Differential control filter
+//  STEP:  Control period
+//
+//  Example
+//  Set roll rate control PID gain
+//  p_pid.set_parameter(2.5, 10.0, 0.45, 0.01, 0.001); 
+
 void control_init(void)
 {
+  //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);//2.0
-  q_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);//2.1
-  r_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);//9.4
+  p_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);
+  q_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);
+  r_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);
   //Angle control
   phi_pid.set_parameter  ( 1.0, 10000, 0.0, 0.018, 0.0025);//
   theta_pid.set_parameter( 1.0, 10000, 0.0, 0.018, 0.0025);//
-  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.03, 0.0025);
+  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);
 }
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
