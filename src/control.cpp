@@ -482,19 +482,18 @@ void control_init(void)
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);
-  q_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);
-  r_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);
+  p_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);//Roll rate control gain
+  q_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);//Pitch rate control gain
+  r_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 1.0, 10000, 0.0, 0.018, 0.0025);//
-  theta_pid.set_parameter( 1.0, 10000, 0.0, 0.018, 0.0025);//
-  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);
+  phi_pid.set_parameter  ( 1.0, 10000, 0.0, 0.018, 0.0025);//Roll angle control gain
+  theta_pid.set_parameter( 1.0, 10000, 0.0, 0.018, 0.0025);//Pitch angle control gain
+  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 }
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
-
 
 uint8_t lock_com(void)
 {
@@ -647,19 +646,7 @@ void rate_control(void)
     }
     else motor_stop();
     //Serial.printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
-  }
- 
-  //Serial.printf("\n");
-
-  //Serial.printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
-  //    Elapsed_time, fr_duty, fl_duty, rr_duty, rl_duty, p_rate, q_rate, r_rate);
-  //Serial.printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
-  //    Elapsed_time, p_com, q_com, r_com, p_ref, q_ref, r_ref);
-  //Serial.printf("%12.5f %12.5f %12.5f %12.5f %12.5f %12.5f %12.5f\n", 
-  //    Elapsed_time, Phi, Theta, Psi, Phi_bias, Theta_bias, Psi_bias);
-  //Elapsed_time = Elapsed_time + 0.0025;
-  //Logging
-  //logging();
+  } 
 }
 
 void angle_control(void)
@@ -737,10 +724,10 @@ void logging(void)
       Logdata[LogdataCounter++]=Pref;                     //7
       Logdata[LogdataCounter++]=Qref;                     //8
       Logdata[LogdataCounter++]=Rref;                     //9
-      Logdata[LogdataCounter++]=Phi;             //10
+      Logdata[LogdataCounter++]=Phi;                      //10
 
-      Logdata[LogdataCounter++]=Theta;         //11
-      Logdata[LogdataCounter++]=Psi;             //12
+      Logdata[LogdataCounter++]=Theta;                    //11
+      Logdata[LogdataCounter++]=Psi;                      //12
       Logdata[LogdataCounter++]=Phi_ref;                  //13
       Logdata[LogdataCounter++]=Theta_ref;                //14
       Logdata[LogdataCounter++]=Psi_ref;                  //15
@@ -796,7 +783,6 @@ void log_output(void)
   }
 }
 
-
 void gyroCalibration(void)
 {
   float wp,wq,wr;
@@ -845,6 +831,7 @@ void output_data(void)
             //,mag_norm
         ); //20
 }
+
 void output_sensor_raw_data(void)
 {
   Serial.printf("%9.3f,"
@@ -858,17 +845,6 @@ void output_sensor_raw_data(void)
             ,Mx, My, Mz//8~10
         ); //20
 }
-
-#if 0
-void kalman_filter(void)
-{
-  //Kalman Filter
-  float dt=0.01;
-  Omega_m << Wp, Wq, Wr;
-  Z << Ax, Ay, Az, Mx, My, Mz;
-  ekf(Xp, Xe, P, Z, Omega_m, Q, R, G*dt, Beta, dt);
-}
-#endif
 
 PID::PID()
 {
