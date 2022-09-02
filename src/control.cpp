@@ -583,8 +583,8 @@ void rate_control(void)
   R_com = r_pid.update(r_err);
 
   //Trim
-  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.00001 - Stick[DPAD_LEFT]*0.00001;
-  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.00001 + Stick[DPAD_DOWN]*0.00001; 
+  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.0001 - Stick[DPAD_LEFT]*0.0001;
+  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.0001 + Stick[DPAD_DOWN]*0.0001; 
 
   //Motor Control
   //正規化Duty
@@ -753,6 +753,20 @@ void logging(void)
 
 void log_output(void)
 {
+  if(LogdataCounter==0)
+  {
+    Serial2.printf("#Roll rate PID gain\n");
+    p_pid.printGain();
+    Serial2.printf("#Pitch rate PID gain\n");
+    q_pid.printGain();
+    Serial2.printf("#Yaw rate PID gain\n");
+    r_pid.printGain();
+    Serial2.printf("#Roll angle PID gain\n");
+    phi_pid.printGain();
+    Serial2.printf("#Pitch angle PID gain\n");
+    theta_pid.printGain();
+    Serial2.printf("#Phi_trim:%f Theta_trim%f\n", Phi_trim, Theta_trim);
+  }
   if(LogdataCounter+DATANUM<LOGDATANUM)
   {
     //LockMode=0;
@@ -879,7 +893,7 @@ void PID::i_reset(void)
 }
 void PID::printGain(void)
 {
-  Serial.printf("#Kp:%8.4f Ti:%8.4f Td:%8.4f Filter T:%8.4f h:%8.4f\n",m_kp,m_ti,m_td,m_filter_time_constant,m_h);
+  Serial2.printf("#Kp:%8.4f Ti:%8.4f Td:%8.4f Filter T:%8.4f h:%8.4f\n",m_kp,m_ti,m_td,m_filter_time_constant,m_h);
 }
 
 float PID::filter(float x)
