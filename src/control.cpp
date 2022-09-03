@@ -57,8 +57,9 @@ float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
 float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
 float Pref=0.0,Qref=0.0,Rref=0.0;
 float Phi_trim   = 0.0;
-float Theta_trim = 0.0;
-float Psi_trim   = 0.0;
+float Theta_trim = -0.04;
+float Psi_trim   = -0.0104;
+//Phi_trim:-0.040000 Theta_trim-0.010400
 
 //Log
 uint16_t LogdataCounter=0;
@@ -71,8 +72,8 @@ float Logdata[LOGDATANUM];
 
 //Machine state
 volatile uint8_t LockMode=0;
-float Disable_duty =0.10;
-float Flight_duty  =0.18;//0.2/////////////////
+float Disable_duty =0.05;
+float Flight_duty  =0.06;//0.2/////////////////
 uint8_t OverG_flag = 0;
 uint8_t Arm_flag = 0;
 volatile uint8_t Loop_flag = 0;
@@ -194,9 +195,9 @@ void test_rangefinder(void)
       Serial.println("VL53L0X is not ready");
 
   read_block_data_at(0x14, 12);
-  uint16_t acnt                  = makeuint16(gbuf[7], gbuf[6]);
-  uint16_t scnt                  = makeuint16(gbuf[9], gbuf[8]);
-  uint16_t dist                  = makeuint16(gbuf[11], gbuf[10]);
+  uint16_t acnt = makeuint16(gbuf[7], gbuf[6]);
+  uint16_t scnt = makeuint16(gbuf[9], gbuf[8]);
+  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
   byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
   Serial.print("ambient count: ");
   Serial.println(acnt);
@@ -261,10 +262,10 @@ void sensor_read(void)
   Psi = Drone_ahrs.getYaw()*DEG_TO_RAD;
   
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>25.0) OverG_flag = 1;
+  if (acc_norm>11.0) OverG_flag = 1;
   Acc_norm = acc_filter.update(acc_norm);
   rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
-  if (rate_norm > 50.0) OverG_flag =1;
+  if (rate_norm > 12.0) OverG_flag =1;
 
 #if 0
   Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
@@ -307,15 +308,15 @@ void loop_400Hz(void)
     {
       //Sensor Read
       sensor_read();
-      Aileron_center  += Stick[AILERON];
-      Elevator_center += Stick[ELEVATOR];
-      Rudder_center   += Stick[RUDDER];
+      //Aileron_center  += Stick[AILERON];
+      //Elevator_center += Stick[ELEVATOR];
+      //Rudder_center   += Stick[RUDDER];
       Pbias += Wp;
       Qbias += Wq;
       Rbias += Wr;
-      Mx_ave += Mx;
-      My_ave += My;
-      Mz_ave += Mz;
+      //Mx_ave += Mx;
+      //My_ave += My;
+      //Mz_ave += Mz;
       BiasCounter++;
       return;
     }
@@ -325,15 +326,15 @@ void loop_400Hz(void)
       sensor_read();
       if(BiasCounter == AVERAGE)
       {
-        Elevator_center = Elevator_center/AVERAGE;
-        Aileron_center  = Aileron_center/AVERAGE;
-        Rudder_center   = Rudder_center/AVERAGE;
+        //Elevator_center = Elevator_center/AVERAGE;
+        //Aileron_center  = Aileron_center/AVERAGE;
+        //Rudder_center   = Rudder_center/AVERAGE;
         Pbias = Pbias/AVERAGE;
         Qbias = Qbias/AVERAGE;
         Rbias = Rbias/AVERAGE;
-        Mx_ave = Mx_ave/AVERAGE;
-        My_ave = My_ave/AVERAGE;
-        Mz_ave = Mz_ave/AVERAGE;
+        //Mx_ave = Mx_ave/AVERAGE;
+        //My_ave = My_ave/AVERAGE;
+        //Mz_ave = Mz_ave/AVERAGE;
       }
 
       //AngleControl control      
@@ -482,12 +483,12 @@ void control_init(void)
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);//Roll rate control gain
-  q_pid.set_parameter(1.0, 10000.0, 0.0, 0.015, 0.0025);//Pitch rate control gain
-  r_pid.set_parameter(3.0, 10000.0, 0.0, 0.015, 0.0025);//Yaw rate control gain
+  p_pid.set_parameter(1.6, 0.7, 0.010, 0.002, 0.0025);//Roll rate control gain
+  q_pid.set_parameter(1.8, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
+  r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 1.0, 10000, 0.0, 0.018, 0.0025);//Roll angle control gain
-  theta_pid.set_parameter( 1.0, 10000, 0.0, 0.018, 0.0025);//Pitch angle control gain
+  phi_pid.set_parameter  ( 20.0, 0.04, 0.001, 0.002, 0.0025);//Roll angle control gain
+  theta_pid.set_parameter( 15.0, 0.10, 0.001, 0.002, 0.0025);//Pitch angle control gain
   psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 }
 ///////////////////////////////////////////////////////////////////
@@ -569,8 +570,10 @@ void rate_control(void)
   p_ref = Pref;
   q_ref = Qref;
   r_ref = Rref;
-  //調整値0.8*電池電圧公称値*正規化スロットル値
-  T_ref = 0.8 * BATTERY_VOLTAGE*Stick[THROTTLE];
+
+  //Throttle curve 補正
+  float thlo = Stick[THROTTLE];
+  T_ref = (3.2*thlo*thlo*thlo -5.49*thlo*thlo + 3.29*thlo)*BATTERY_VOLTAGE;
 
   //Error
   p_err = p_ref - p_rate;
@@ -651,8 +654,8 @@ void angle_control(void)
   if (true)
   {
     //Get angle ref 
-    Phi_ref   = 0.6 * M_PI *Stick[AILERON];
-    Theta_ref = 0.6 * M_PI *Stick[ELEVATOR];
+    Phi_ref   = 0.4 * M_PI *Stick[AILERON];
+    Theta_ref = 0.4 * M_PI *Stick[ELEVATOR];
     Psi_ref   = 0.8 * M_PI *Stick[RUDDER];
 
     //Error
@@ -726,12 +729,12 @@ void logging(void)
       Logdata[LogdataCounter++]=P_com;                    //16
       Logdata[LogdataCounter++]=Q_com;                    //17
       Logdata[LogdataCounter++]=R_com;                    //18
-      Logdata[LogdataCounter++]=p_pid.m_integral;//m_filter_output;    //19
-      Logdata[LogdataCounter++]=q_pid.m_integral;//m_filter_output;    //20
+      Logdata[LogdataCounter++]=p_pid.m_filter_output;    //19
+      Logdata[LogdataCounter++]=q_pid.m_filter_output;    //20
 
-      Logdata[LogdataCounter++]=r_pid.m_integral;//m_filter_output;    //21
-      Logdata[LogdataCounter++]=phi_pid.m_integral;//m_filter_output;  //22
-      Logdata[LogdataCounter++]=theta_pid.m_integral;//m_filter_output;//23
+      Logdata[LogdataCounter++]=r_pid.m_filter_output;    //21
+      Logdata[LogdataCounter++]=phi_pid.m_filter_output;  //22
+      Logdata[LogdataCounter++]=theta_pid.m_filter_output;//23
       Logdata[LogdataCounter++]=Pbias;                    //24
       Logdata[LogdataCounter++]=Qbias;                    //25
       Logdata[LogdataCounter++]=Rbias;                    //26
@@ -755,17 +758,17 @@ void log_output(void)
 {
   if(LogdataCounter==0)
   {
-    Serial2.printf("#Roll rate PID gain\n");
+    Serial2.printf("#Roll rate PID gain\r\n");
     p_pid.printGain();
-    Serial2.printf("#Pitch rate PID gain\n");
+    Serial2.printf("#Pitch rate PID gain\r\n");
     q_pid.printGain();
-    Serial2.printf("#Yaw rate PID gain\n");
+    Serial2.printf("#Yaw rate PID gain\r\n");
     r_pid.printGain();
-    Serial2.printf("#Roll angle PID gain\n");
+    Serial2.printf("#Roll angle PID gain\r\n");
     phi_pid.printGain();
-    Serial2.printf("#Pitch angle PID gain\n");
+    Serial2.printf("#Pitch angle PID gain\r\n");
     theta_pid.printGain();
-    Serial2.printf("#Phi_trim:%f Theta_trim%f\n", Phi_trim, Theta_trim);
+    Serial2.printf("#Phi_trim:%f Theta_trim%f\r\n", Phi_trim, Theta_trim);
   }
   if(LogdataCounter+DATANUM<LOGDATANUM)
   {
@@ -893,7 +896,7 @@ void PID::i_reset(void)
 }
 void PID::printGain(void)
 {
-  Serial2.printf("#Kp:%8.4f Ti:%8.4f Td:%8.4f Filter T:%8.4f h:%8.4f\n",m_kp,m_ti,m_td,m_filter_time_constant,m_h);
+  Serial2.printf("#Kp:%8.4f Ti:%8.4f Td:%8.4f Filter T:%8.4f h:%8.4f\r\n",m_kp,m_ti,m_td,m_filter_time_constant,m_h);
 }
 
 float PID::filter(float x)
