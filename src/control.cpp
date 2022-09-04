@@ -483,11 +483,11 @@ void control_init(void)
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(1.6, 0.7, 0.010, 0.002, 0.0025);//Roll rate control gain
-  q_pid.set_parameter(1.8, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
+  p_pid.set_parameter(0.8, 0.7, 0.010, 0.002, 0.0025);//Roll rate control gain
+  q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 20.0, 0.04, 0.001, 0.002, 0.0025);//Roll angle control gain
+  phi_pid.set_parameter  ( 19.0, 0.05, 0.001, 0.002, 0.0025);//Roll angle control gain
   theta_pid.set_parameter( 15.0, 0.10, 0.001, 0.002, 0.0025);//Pitch angle control gain
   psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 }
@@ -654,9 +654,9 @@ void angle_control(void)
   if (true)
   {
     //Get angle ref 
-    Phi_ref   = 0.4 * M_PI *Stick[AILERON];
-    Theta_ref = 0.4 * M_PI *Stick[ELEVATOR];
-    Psi_ref   = 0.8 * M_PI *Stick[RUDDER];
+    Phi_ref   = 0.4 * M_PI * (Stick[AILERON] - Aileron_center);
+    Theta_ref = 0.4 * M_PI * (Stick[ELEVATOR] -Elevator_center);
+    Psi_ref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
 
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);
