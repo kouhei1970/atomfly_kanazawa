@@ -72,10 +72,16 @@ const uint32_t LOGDATANUM=DATANUM*700;
 float Logdata[LOGDATANUM];
 
 //Machine state
-uint8_t Mode = 0;
+uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
+
+float Motor_on_duty_threshold = 0.1;
+float Angle_control_on_duty_threshold = 0.2;
+float Rate_control_on_duty_threshold = 0.4;
+
 float Disable_duty =0.05;
 float Flight_duty  =0.06;//0.2/////////////////
+
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
 
@@ -95,7 +101,7 @@ void control_init();
 void gyro_calibration(void);
 void variable_init(void);
 void log_output(void);
-void gpio_put(CRGB p, uint8_t state);
+void m5_atom_led(CRGB p, uint8_t state);
 void rate_control(void);
 void sensor_read(void);
 void angle_control(void);
@@ -113,13 +119,6 @@ void set_duty_rl(float duty);
 hw_timer_t * timer = NULL;
 void IRAM_ATTR onTimer() {
   Loop_flag = 1;
-}
-
-void gpio_put(CRGB p, uint8_t state)
-{
-  if (state ==1) M5.dis.drawpix(0, p);
-  else M5.dis.drawpix(0, 0x000000);
-  return;
 }
 
 void init_atomfly(void)
@@ -145,6 +144,218 @@ void init_atomfly(void)
   delay(500);
 
   Mode = 1;
+}
+
+//Main loop
+void loop_400Hz(void)
+{
+  static uint8_t led=1;
+
+  while(Loop_flag==0);
+  Loop_flag = 0;
+
+  //Begin Mode select
+  if (Mode == INIT_MODE)
+  {
+      motor_stop();
+      Elevator_center = 0.0;
+      Aileron_center = 0.0;
+      Rudder_center = 0.0;
+      Pbias = 0.0;
+      Qbias = 0.0;
+      Rbias = 0.0;
+      Phi_bias = 0.0;
+      Theta_bias = 0.0;
+      Psi_bias = 0.0;
+      return;
+  }
+  else if (Mode == AVERAGE_MODE)
+  {
+    motor_stop();
+    //Gyro Bias Estimate
+    if (BiasCounter < AVERAGENUM)
+    {
+      //Sensor Read
+      sensor_read();
+      Aileron_center  += Stick[AILERON];
+      Elevator_center += Stick[ELEVATOR];
+      Rudder_center   += Stick[RUDDER];
+      Pbias += Wp;
+      Qbias += Wq;
+      Rbias += Wr;
+      Phi_bias   += Phi;
+      Theta_bias += Theta;
+      Psi_bias   += Psi;
+      BiasCounter++;
+      return;
+    }
+    else if(BiasCounter == AVERAGENUM)
+    {
+      //Average calc
+      Elevator_center = Elevator_center/AVERAGENUM;
+      Aileron_center  = Aileron_center/AVERAGENUM;
+      Rudder_center   = Rudder_center/AVERAGENUM;
+      Pbias = Pbias/AVERAGENUM;
+      Qbias = Qbias/AVERAGENUM;
+      Rbias = Rbias/AVERAGENUM;
+      Phi_bias   = Phi_bias/AVERAGENUM;
+      Theta_bias = Theta_bias/AVERAGENUM;
+      Psi_bias   = Psi_bias/AVERAGENUM;
+
+      //Mode change
+      Mode = 3;
+    }
+    return;
+  }
+  else if( Mode == FLIGHT_MODE)
+  {
+    if(LockMode==2)
+    {
+      if(lock_com()==1)
+      {
+        LockMode=3;//Disenable Flight
+        led=0;
+        m5_atom_led(GREEN,led);
+        return;
+      }
+      //Goto Flight
+    }
+    else if(LockMode==3)
+    {
+      if(lock_com()==0){
+        LockMode=0;
+        Mode=3;
+      }
+      return;
+    }
+    //LED Blink
+    m5_atom_led(RED, led);
+    if(Logflag==1&&LedBlinkCounter<100){
+      LedBlinkCounter++;
+    }
+    else
+    {
+      LedBlinkCounter=0;
+      if(Logflag==1)led=!led;
+      else led=1;
+    }
+   
+    //Angle Control
+    angle_control();
+
+    //Rate Control
+    rate_control();
+  }
+  else if(Mode == STAY_MODE)
+  {
+    motor_stop();
+    OverG_flag = 0;
+    if(LedBlinkCounter<10){
+      m5_atom_led(GREEN, 1);
+      LedBlinkCounter++;
+    }
+    else if(LedBlinkCounter<100)
+    {
+      m5_atom_led(GREEN, 0);
+      LedBlinkCounter++;
+    }
+    else LedBlinkCounter=0;
+    
+    //Get Stick Center 
+    //Aileron_center  = Stick[AILERON];
+    //Elevator_center = Stick[ELEVATOR];
+    //Rudder_center   = Stick[RUDDER];
+  
+    if(LockMode==0)
+    {
+      if( lock_com()==1)
+      {
+        LockMode=1;
+        return;
+      }
+      //Wait output log
+    }
+    else if(LockMode==1)
+    {
+      if(lock_com()==0)
+      {
+        LockMode=2;//Enable Flight
+        Mode=2;
+      }
+      return;
+    }
+
+    if(logdata_out_com()==1)
+    {
+      Mode=4;
+      return;
+    }
+  }
+  else if(Mode == LOG_MODE)
+  {
+    motor_stop();
+    Logoutputflag=1;
+    log_output();
+    //LED Blink
+    m5_atom_led(BLUE, led);
+    if(LedBlinkCounter<10){
+      LedBlinkCounter++;
+    }
+    else
+    {
+      LedBlinkCounter=0;
+      led=!led;
+    }
+  }
+  //End Mode select
+  //End of Loop_400Hz function
+}
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+//  PID control gain setting
+//
+//  Sets the gain of PID control.
+//  
+//  Function usage
+//  PID.set_parameter(PGAIN, IGAIN, DGAIN, TC, STEP)
+//
+//  PGAIN: PID Proportional Gain
+//  IGAIN: PID Integral Gain
+//   *The larger the value of integral gain, the smaller the effect of integral control.
+//  DGAIN: PID Differential Gain
+//  TC:    Time constant for Differential control filter
+//  STEP:  Control period
+//
+//  Example
+//  Set roll rate control PID gain
+//  p_pid.set_parameter(2.5, 10.0, 0.45, 0.01, 0.001); 
+
+void control_init(void)
+{
+  //Acceleration filter
+  acc_filter.set_parameter(0.005, 0.0025);
+  //Rate control
+  p_pid.set_parameter(0.8, 0.7, 0.010, 0.002, 0.0025);//Roll rate control gain
+  q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
+  r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
+  //Angle control
+  phi_pid.set_parameter  ( 19.0, 0.05, 0.001, 0.002, 0.0025);//Roll angle control gain
+  theta_pid.set_parameter( 15.0, 0.10, 0.001, 0.002, 0.0025);//Pitch angle control gain
+  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
+}
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
+
+void m5_atom_led(CRGB p, uint8_t state)
+{
+  if (state ==1) M5.dis.drawpix(0, p);
+  else M5.dis.drawpix(0, 0x000000);
+  return;
 }
 
 void init_i2c()
@@ -240,7 +451,7 @@ uint16_t get_distance(void)
   //uint16_t scnt                  = makeuint16(gbuf[9], gbuf[8]);
   uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
   //byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
-  return cnt;
+  return dist;
 }
 
 void set_duty_fr(float duty){ledcWrite(FR_motor, (uint32_t)(255*duty));}
@@ -279,211 +490,6 @@ void sensor_read(void)
 #endif
 }
 
-//Main loop
-void loop_400Hz(void)
-{
-
-  static uint8_t led=1;
-
-  while(Loop_flag==0);
-  Loop_flag = 0;
-
-  //Begin Mode select
-  if (Mode == INIT_MODE)
-  {
-      motor_stop();
-      Elevator_center = 0.0;
-      Aileron_center = 0.0;
-      Rudder_center = 0.0;
-      Pbias = 0.0;
-      Qbias = 0.0;
-      Rbias = 0.0;
-      Phi_bias = 0.0;
-      Theta_bias = 0.0;
-      Psi_bias = 0.0;
-      return;
-  }
-  else if (Mode == AVERAGE_MODE)
-  {
-    motor_stop();
-    //Gyro Bias Estimate
-    if (BiasCounter < AVERAGENUM)
-    {
-      //Sensor Read
-      sensor_read();
-      Aileron_center  += Stick[AILERON];
-      Elevator_center += Stick[ELEVATOR];
-      Rudder_center   += Stick[RUDDER];
-      Pbias += Wp;
-      Qbias += Wq;
-      Rbias += Wr;
-      Phi_bias   += Phi;
-      Theta_bias += Theta;
-      Psi_bias   += Psi;
-      BiasCounter++;
-      return;
-    }
-    else if(BiasCounter == AVERAGENUM)
-    {
-      //Average calc
-      Elevator_center = Elevator_center/AVERAGENUM;
-      Aileron_center  = Aileron_center/AVERAGENUM;
-      Rudder_center   = Rudder_center/AVERAGENUM;
-      Pbias = Pbias/AVERAGENUM;
-      Qbias = Qbias/AVERAGENUM;
-      Rbias = Rbias/AVERAGENUM;
-      Phi_bias   = Phi_bias/AVERAGENUM;
-      Theta_bias = Theta_bias/AVERAGENUM;
-      Psi_bias   = Psi_bias/AVERAGENUM;
-
-      //Mode change
-      Mode = 3;
-    }
-    return;
-  }
-  else if( Mode == FLIGHT_MODE)
-  {
-    if(LockMode==2)
-    {
-      if(lock_com()==1)
-      {
-        LockMode=3;//Disenable Flight
-        led=0;
-        gpio_put(GREEN,led);
-        return;
-      }
-      //Goto Flight
-    }
-    else if(LockMode==3)
-    {
-      if(lock_com()==0){
-        LockMode=0;
-        Mode=3;
-      }
-      return;
-    }
-    //LED Blink
-    gpio_put(RED, led);
-    if(Logflag==1&&LedBlinkCounter<100){
-      LedBlinkCounter++;
-    }
-    else
-    {
-      LedBlinkCounter=0;
-      if(Logflag==1)led=!led;
-      else led=1;
-    }
-   
-    //Angle Control
-    angle_control();
-
-    //Rate Control
-    rate_control();
-  }
-  else if(Mode == STAY_MODE)
-  {
-    motor_stop();
-    OverG_flag = 0;
-    if(LedBlinkCounter<10){
-      gpio_put(GREEN, 1);
-      LedBlinkCounter++;
-    }
-    else if(LedBlinkCounter<100)
-    {
-      gpio_put(GREEN, 0);
-      LedBlinkCounter++;
-    }
-    else LedBlinkCounter=0;
-    
-    //Get Stick Center 
-    //Aileron_center  = Stick[AILERON];
-    //Elevator_center = Stick[ELEVATOR];
-    //Rudder_center   = Stick[RUDDER];
-  
-    if(LockMode==0)
-    {
-      if( lock_com()==1)
-      {
-        LockMode=1;
-        return;
-      }
-      //Wait output log
-    }
-    else if(LockMode==1)
-    {
-      if(lock_com()==0)
-      {
-        LockMode=2;//Enable Flight
-        Mode=2;
-      }
-      return;
-    }
-
-    if(logdata_out_com()==1)
-    {
-      Mode=4;
-      return;
-    }
-  }
-  else if(Mode == LOG_MODE)
-  {
-    motor_stop();
-    Logoutputflag=1;
-    log_output();
-    //LED Blink
-    gpio_put(BLUE, led);
-    if(LedBlinkCounter<10){
-      LedBlinkCounter++;
-    }
-    else
-    {
-      LedBlinkCounter=0;
-      led=!led;
-    }
-  }
-  //End Mode select
-}
-
-///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////
-//  PID control gain setting
-//
-//  Sets the gain of PID control.
-//  
-//  Function usage
-//  PID.set_parameter(PGAIN, IGAIN, DGAIN, TC, STEP)
-//
-//  PGAIN: PID Proportional Gain
-//  IGAIN: PID Integral Gain
-//   *The larger the value of integral gain, the smaller the effect of integral control.
-//  DGAIN: PID Differential Gain
-//  TC:    Time constant for Differential control filter
-//  STEP:  Control period
-//
-//  Example
-//  Set roll rate control PID gain
-//  p_pid.set_parameter(2.5, 10.0, 0.45, 0.01, 0.001); 
-
-void control_init(void)
-{
-  //Acceleration filter
-  acc_filter.set_parameter(0.005, 0.0025);
-  //Rate control
-  p_pid.set_parameter(0.8, 0.7, 0.010, 0.002, 0.0025);//Roll rate control gain
-  q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
-  r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
-  //Angle control
-  phi_pid.set_parameter  ( 19.0, 0.05, 0.001, 0.002, 0.0025);//Roll angle control gain
-  theta_pid.set_parameter( 15.0, 0.10, 0.001, 0.002, 0.0025);//Pitch angle control gain
-  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
-}
-///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////
-
 uint8_t lock_com(void)
 {
   static uint8_t chatta=0,state=0;
@@ -503,9 +509,7 @@ uint8_t lock_com(void)
     chatta=0;
     state=0;
   }
-
   return state;
-
 }
 
 uint8_t logdata_out_com(void)
@@ -528,7 +532,6 @@ uint8_t logdata_out_com(void)
     chatta=0;
     state=0;
   }
-
   return state;
 }
 
@@ -559,7 +562,7 @@ void rate_control(void)
   q_ref = Qref;
   r_ref = Rref;
 
-  //Throttle curve 補正
+  //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
   T_ref = (3.2*thlo*thlo*thlo -5.49*thlo*thlo + 3.29*thlo)*BATTERY_VOLTAGE;
 
@@ -568,12 +571,12 @@ void rate_control(void)
   q_err = q_ref - q_rate;
   r_err = r_ref - r_rate;
 
-  //PID
+  //Rate Control PID
   P_com = p_pid.update(p_err);
   Q_com = q_pid.update(q_err);
   R_com = r_pid.update(r_err);
 
-  //Trim
+  //Adjust Trim using PS3controller DPAD
   Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.0001 - Stick[DPAD_LEFT]*0.0001;
   Theta_trim = Theta_trim - Stick[DPAD_UP]*0.0001 + Stick[DPAD_DOWN]*0.0001; 
 
@@ -584,9 +587,8 @@ void rate_control(void)
   RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE-Phi_trim-Theta_trim;
   RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE+Phi_trim-Theta_trim;
   
-  float minimum_duty=0.1;
-  const float maximum_duty=0.95;
-  minimum_duty = Disable_duty;
+  const float minimum_duty=0.0;
+  const float maximum_duty=0.99;
 
   if (FR_duty < minimum_duty) FR_duty = minimum_duty;
   if (FR_duty > maximum_duty) FR_duty = maximum_duty;
@@ -601,7 +603,7 @@ void rate_control(void)
   if (RL_duty > maximum_duty) RL_duty = maximum_duty;
 
   //Duty set
-  if(T_ref/BATTERY_VOLTAGE < Disable_duty)
+  if(T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold)
   {
     motor_stop();
     p_pid.reset();
@@ -617,6 +619,15 @@ void rate_control(void)
     Theta_bias = Theta;
     Psi_bias   = Psi;
     
+  }
+  else if(T_ref/BATTERY_VOLTAGE < Rate_control_on_duty_threshold)
+  {
+    p_pid.reset();
+    q_pid.reset();
+    r_pid.reset();
+    Pref=0.0;
+    Qref=0.0;
+    Rref=0.0;
   }
   else
   {
@@ -634,56 +645,53 @@ void rate_control(void)
 
 void angle_control(void)
 {
-  float phi_err,theta_err,psi_err;
-  float q0,q1,q2,q3;
-  float e23,e33,e13,e11,e12;
+  float phi_err,theta_err;//,psi_err;
+  //float q0,q1,q2,q3;
+  //float e23,e33,e13,e11,e12;
   static uint8_t cnt=0;
 
-  if (true)
+  
+  //Get angle ref 
+  Phi_ref   = 0.4 * M_PI * (Stick[AILERON] - Aileron_center);
+  Theta_ref = 0.4 * M_PI * (Stick[ELEVATOR] -Elevator_center);
+  Psi_ref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
+
+  //Error
+  phi_err   = Phi_ref   - (Phi   - Phi_bias);
+  theta_err = Theta_ref - (Theta - Theta_bias);
+  //psi_err   = Psi_ref   - (Psi   - Psi_bias);
+  
+  //PID Control
+  if (T_ref/BATTERY_VOLTAGE < Flight_duty)
   {
-    //Get angle ref 
-    Phi_ref   = 0.4 * M_PI * (Stick[AILERON] - Aileron_center);
-    Theta_ref = 0.4 * M_PI * (Stick[ELEVATOR] -Elevator_center);
-    Psi_ref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
-
-    //Error
-    phi_err   = Phi_ref   - (Phi   - Phi_bias);
-    theta_err = Theta_ref - (Theta - Theta_bias);
-    psi_err   = Psi_ref   - (Psi   - Psi_bias);
-    
-    //PID Control
-    if (T_ref/BATTERY_VOLTAGE < Flight_duty)
-    {
-      Pref=0.0;
-      Qref=0.0;
-      Rref=0.0;
-      phi_pid.reset();
-      theta_pid.reset();
-      psi_pid.reset();
-      //Aileron_center  = Stick[AILERON];
-      //Elevator_center = Stick[ELEVATOR];
-      //Rudder_center   = Stick[RUDDER];
-      /////////////////////////////////////
-      Phi_bias   = Phi;
-      Theta_bias = Theta;
-      Psi_bias   = Psi;
-      /////////////////////////////////////
-      //Serial.println("Disenable angle  control");
-    }
-    else
-    {
-      Pref = phi_pid.update(phi_err);
-      Qref = theta_pid.update(theta_err);
-      Rref = Psi_ref;//psi_pid.update(psi_err);//Yawは角度制御しない
-      //Serial.println("Enable angle  control");
-
-    }
-
-    //Logging
-    if (cnt==0)logging();
-    cnt++;
-    if(cnt==4 )cnt=0;
+    Pref=0.0;
+    Qref=0.0;
+    Rref=0.0;
+    phi_pid.reset();
+    theta_pid.reset();
+    psi_pid.reset();
+    //Aileron_center  = Stick[AILERON];
+    //Elevator_center = Stick[ELEVATOR];
+    //Rudder_center   = Stick[RUDDER];
+    /////////////////////////////////////
+    Phi_bias   = Phi;
+    Theta_bias = Theta;
+    Psi_bias   = Psi;
+    /////////////////////////////////////
+    //Serial.println("Disenable angle  control");
   }
+  else
+  {
+    Pref = phi_pid.update(phi_err);
+    Qref = theta_pid.update(theta_err);
+    Rref = Psi_ref;//psi_pid.update(psi_err);//Yawは角度制御しない
+    //Serial.println("Enable angle  control");
+  }
+
+  //Logging(100Hz)
+  if (cnt==0)logging();
+  cnt++;
+  if(cnt==4 )cnt=0;
 }
 
 void logging(void)
@@ -707,10 +715,10 @@ void logging(void)
       Logdata[LogdataCounter++]=Pref;                     //7
       Logdata[LogdataCounter++]=Qref;                     //8
       Logdata[LogdataCounter++]=Rref;                     //9
-      Logdata[LogdataCounter++]=Phi;                      //10
+      Logdata[LogdataCounter++]=Phi-Phi_bias;             //10
 
-      Logdata[LogdataCounter++]=Theta;                    //11
-      Logdata[LogdataCounter++]=Psi;                      //12
+      Logdata[LogdataCounter++]=Theta-Theta_bias;         //11
+      Logdata[LogdataCounter++]=Psi-Psi_bias;             //12
       Logdata[LogdataCounter++]=Phi_ref;                  //13
       Logdata[LogdataCounter++]=Theta_ref;                //14
       Logdata[LogdataCounter++]=Psi_ref;                  //15
