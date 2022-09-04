@@ -7,6 +7,7 @@
 #include <MadgwickAHRS.h>
 #include "rc.hpp"
 #include "flight_control.hpp"
+#include "pid.hpp"
 
 const int pwmFL = 22;
 const int pwmFR = 19;
@@ -278,9 +279,7 @@ void sensor_read(void)
 #endif
 }
 
-
 //Main loop
-//This function is called from PWM Intrupt on 400Hz.
 void loop_400Hz(void)
 {
 
@@ -289,6 +288,7 @@ void loop_400Hz(void)
   while(Loop_flag==0);
   Loop_flag = 0;
 
+  //Begin Mode select
   if (Mode == INIT_MODE)
   {
       motor_stop();
@@ -339,6 +339,7 @@ void loop_400Hz(void)
       //Mode change
       Mode = 3;
     }
+    return;
   }
   else if( Mode == FLIGHT_MODE)
   {
@@ -395,9 +396,9 @@ void loop_400Hz(void)
     else LedBlinkCounter=0;
     
     //Get Stick Center 
-    Aileron_center  = Stick[AILERON];
-    Elevator_center = Stick[ELEVATOR];
-    Rudder_center   = Stick[RUDDER];
+    //Aileron_center  = Stick[AILERON];
+    //Elevator_center = Stick[ELEVATOR];
+    //Rudder_center   = Stick[RUDDER];
   
     if(LockMode==0)
     {
@@ -406,7 +407,7 @@ void loop_400Hz(void)
         LockMode=1;
         return;
       }
-      //Wait  output log
+      //Wait output log
     }
     else if(LockMode==1)
     {
@@ -440,6 +441,7 @@ void loop_400Hz(void)
       led=!led;
     }
   }
+  //End Mode select
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -608,9 +610,9 @@ void rate_control(void)
     Pref=0.0;
     Qref=0.0;
     Rref=0.0;
-    Aileron_center  = Stick[AILERON];
-    Elevator_center = Stick[ELEVATOR];
-    Rudder_center   = Stick[RUDDER];
+    //Aileron_center  = Stick[AILERON];
+    //Elevator_center = Stick[ELEVATOR];
+    //Rudder_center   = Stick[RUDDER];
     Phi_bias   = Phi;
     Theta_bias = Theta;
     Psi_bias   = Psi;
@@ -658,9 +660,9 @@ void angle_control(void)
       phi_pid.reset();
       theta_pid.reset();
       psi_pid.reset();
-      Aileron_center  = Stick[AILERON];
-      Elevator_center = Stick[ELEVATOR];
-      Rudder_center   = Stick[RUDDER];
+      //Aileron_center  = Stick[AILERON];
+      //Elevator_center = Stick[ELEVATOR];
+      //Rudder_center   = Stick[RUDDER];
       /////////////////////////////////////
       Phi_bias   = Phi;
       Theta_bias = Theta;
@@ -770,30 +772,12 @@ void log_output(void)
   }
   else 
   {
-    Mode=3;
-    Logoutputflag=0;
-    LockMode=0;
-    Log_time=0.0;
-    LogdataCounter=0;
+    Mode = STAY_MODE;
+    Logoutputflag = 0;
+    LockMode = 0;
+    Log_time = 0.0;
+    LogdataCounter = 0;
   }
-}
-
-void gyroCalibration(void)
-{
-  float wp,wq,wr;
-  float sump,sumq,sumr;
-  uint16_t N=1000;
-  for(uint16_t i=0;i<N;i++)
-  {
-    sensor_read();
-    sump=sump+Wp;
-    sumq=sumq+Wq;
-    sumr=sumr+Wr;
-    delay(1);
-  } 
-  Pbias=sump/N;
-  Qbias=sumq/N;
-  Rbias=sumr/N;
 }
 
 void variable_init(void)
@@ -837,91 +821,3 @@ void output_sensor_raw_data(void)
         ); //20
 }
 
-PID::PID()
-{
-  m_kp=1.0e-8;
-  m_ti=1.0e8;
-  m_td=0.0;
-  m_integral=0.0;
-  m_filter_time_constant=0.01;
-  m_filter_output=0.0;
-  m_err=0.0;
-  m_h=0.01;
-}
-
-void PID::set_parameter(
-    float kp, 
-    float ti, 
-    float td,
-    float filter_time_constant, 
-    float h)
-{
-  m_kp=kp;
-  m_ti=ti;
-  m_td=td;
-  m_filter_time_constant=filter_time_constant;
-  m_h=h;
-}
-
-void PID::reset(void)
-{
-  m_integral=0.0;
-  m_filter_output=0.0;
-  m_err=0.0;
-  m_err2=0.0;
-  m_err3=0.0;
-}
-
-void PID::i_reset(void)
-{
-  m_integral=0.0;
-}
-void PID::printGain(void)
-{
-  Serial2.printf("#Kp:%8.4f Ti:%8.4f Td:%8.4f Filter T:%8.4f h:%8.4f\r\n",m_kp,m_ti,m_td,m_filter_time_constant,m_h);
-}
-
-float PID::filter(float x)
-{
-  m_filter_output = m_filter_output * m_filter_time_constant/(m_filter_time_constant + m_h) 
-                  + x * m_h/(m_filter_time_constant + m_h);   
-  return m_filter_output;
-}
-
-float PID::update(float err)
-{
-  float d;
-  m_integral = m_integral + m_h * err;
-  if(m_integral> 30000.0)m_integral = 30000.0;
-  if(m_integral<-30000.0)m_integral =-30000.0;
-  m_filter_output = filter((err-m_err3)/m_h);
-  m_err3 = m_err2;
-  m_err2 = m_err;
-  m_err  = err;
-  return m_kp*(err + m_integral/m_ti + m_td * m_filter_output); 
-}
-
-Filter::Filter()
-{
-  m_state = 0.0;
-  m_T = 0.0025;
-  m_h = 0.0025;
-}
-
-void Filter::reset(void)
-{
-  m_state = 0.0;
-}
-
-void Filter::set_parameter(float T, float h)
-{
-  m_T = T;
-  m_h = h;
-}
-
-float Filter::update(float u)
-{
-  m_state = m_state * m_T /(m_T + m_h) + u * m_h/(m_T + m_h);
-  m_out = m_state;
-  return m_out;
-}
