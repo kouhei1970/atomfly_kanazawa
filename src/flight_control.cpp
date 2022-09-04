@@ -71,11 +71,11 @@ const uint32_t LOGDATANUM=DATANUM*700;
 float Logdata[LOGDATANUM];
 
 //Machine state
+uint8_t Mode = 0;
 volatile uint8_t LockMode=0;
 float Disable_duty =0.05;
 float Flight_duty  =0.06;//0.2/////////////////
 uint8_t OverG_flag = 0;
-uint8_t Arm_flag = 0;
 volatile uint8_t Loop_flag = 0;
 
 //PID object and etc.
@@ -87,7 +87,14 @@ PID theta_pid;
 PID psi_pid;
 Filter acc_filter;
 
-void loop_400Hz(void);
+void test_rangefinder(void);
+void init_i2c();
+void init_pwm();
+void control_init();
+void gyro_calibration(void);
+void variable_init(void);
+void log_output(void);
+void gpio_put(CRGB p, uint8_t state);
 void rate_control(void);
 void sensor_read(void);
 void angle_control(void);
@@ -97,7 +104,6 @@ void logging(void);
 void motor_stop(void);
 uint8_t lock_com(void);
 uint8_t logdata_out_com(void);
-void printPQR(void);
 void set_duty_fr(float duty);
 void set_duty_fl(float duty);
 void set_duty_rr(float duty);
@@ -117,6 +123,8 @@ void gpio_put(CRGB p, uint8_t state)
 
 void init_atomfly(void)
 {
+  Mode = 0;
+  M5.dis.drawpix(0, BLUE);
   init_i2c();
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
@@ -125,19 +133,17 @@ void init_atomfly(void)
   Wire.begin(25,21,400000UL);
   Serial.println("VLX53LOX test started.");
   Serial.println(F("BMP280 test started...\n"));
-  M5.dis.drawpix(0, BLUE);
   test_rangefinder();
   init_pwm();
   Drone_ahrs.begin(400.0);
   control_init();
-
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 2500, true);
   timerAlarmEnable(timer);
-  
   delay(500);
-  Arm_flag = 1;
+
+  Mode = 1;
 }
 
 void init_i2c()
@@ -240,7 +246,6 @@ void set_duty_fr(float duty){ledcWrite(FR_motor, (uint32_t)(255*duty));}
 void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
 void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
 void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
-void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz){}
 
 void sensor_read(void)
 {
@@ -274,8 +279,6 @@ void sensor_read(void)
 }
 
 
-
-
 //Main loop
 //This function is called from PWM Intrupt on 400Hz.
 void loop_400Hz(void)
@@ -286,9 +289,9 @@ void loop_400Hz(void)
   while(Loop_flag==0);
   Loop_flag = 0;
 
-  if (Arm_flag==0)
+  if (Mode == INIT_MODE)
   {
-      //motor_stop();
+      motor_stop();
       Elevator_center = 0.0;
       Aileron_center = 0.0;
       Rudder_center = 0.0;
@@ -300,61 +303,44 @@ void loop_400Hz(void)
       Psi_bias = 0.0;
       return;
   }
-  else if (Arm_flag==1)
+  else if (Mode == AVERAGE_MODE)
   {
     motor_stop();
     //Gyro Bias Estimate
-    if (BiasCounter < AVERAGE)
+    if (BiasCounter < AVERAGENUM)
     {
       //Sensor Read
       sensor_read();
-      //Aileron_center  += Stick[AILERON];
-      //Elevator_center += Stick[ELEVATOR];
-      //Rudder_center   += Stick[RUDDER];
+      Aileron_center  += Stick[AILERON];
+      Elevator_center += Stick[ELEVATOR];
+      Rudder_center   += Stick[RUDDER];
       Pbias += Wp;
       Qbias += Wq;
       Rbias += Wr;
-      //Mx_ave += Mx;
-      //My_ave += My;
-      //Mz_ave += Mz;
-      BiasCounter++;
-      return;
-    }
-    else if(BiasCounter<KALMANWAIT)
-    {
-      //Sensor Read
-      sensor_read();
-      if(BiasCounter == AVERAGE)
-      {
-        //Elevator_center = Elevator_center/AVERAGE;
-        //Aileron_center  = Aileron_center/AVERAGE;
-        //Rudder_center   = Rudder_center/AVERAGE;
-        Pbias = Pbias/AVERAGE;
-        Qbias = Qbias/AVERAGE;
-        Rbias = Rbias/AVERAGE;
-        //Mx_ave = Mx_ave/AVERAGE;
-        //My_ave = My_ave/AVERAGE;
-        //Mz_ave = Mz_ave/AVERAGE;
-      }
-
-      //AngleControl control      
-
       Phi_bias   += Phi;
       Theta_bias += Theta;
       Psi_bias   += Psi;
       BiasCounter++;
       return;
     }
-    else
+    else if(BiasCounter == AVERAGENUM)
     {
-      Arm_flag = 3;
-      Phi_bias   = Phi_bias/KALMANWAIT;
-      Theta_bias = Theta_bias/KALMANWAIT;
-      Psi_bias   = Psi_bias/KALMANWAIT;
-      return;
+      //Average calc
+      Elevator_center = Elevator_center/AVERAGENUM;
+      Aileron_center  = Aileron_center/AVERAGENUM;
+      Rudder_center   = Rudder_center/AVERAGENUM;
+      Pbias = Pbias/AVERAGENUM;
+      Qbias = Qbias/AVERAGENUM;
+      Rbias = Rbias/AVERAGENUM;
+      Phi_bias   = Phi_bias/AVERAGENUM;
+      Theta_bias = Theta_bias/AVERAGENUM;
+      Psi_bias   = Psi_bias/AVERAGENUM;
+
+      //Mode change
+      Mode = 3;
     }
   }
-  else if( Arm_flag==2)
+  else if( Mode == FLIGHT_MODE)
   {
     if(LockMode==2)
     {
@@ -371,7 +357,7 @@ void loop_400Hz(void)
     {
       if(lock_com()==0){
         LockMode=0;
-        Arm_flag=3;
+        Mode=3;
       }
       return;
     }
@@ -393,7 +379,7 @@ void loop_400Hz(void)
     //Rate Control
     rate_control();
   }
-  else if(Arm_flag==3)
+  else if(Mode == STAY_MODE)
   {
     motor_stop();
     OverG_flag = 0;
@@ -427,18 +413,18 @@ void loop_400Hz(void)
       if(lock_com()==0)
       {
         LockMode=2;//Enable Flight
-        Arm_flag=2;
+        Mode=2;
       }
       return;
     }
 
     if(logdata_out_com()==1)
     {
-      Arm_flag=4;
+      Mode=4;
       return;
     }
   }
-  else if(Arm_flag==4)
+  else if(Mode == LOG_MODE)
   {
     motor_stop();
     Logoutputflag=1;
@@ -784,7 +770,7 @@ void log_output(void)
   }
   else 
   {
-    Arm_flag=3;
+    Mode=3;
     Logoutputflag=0;
     LockMode=0;
     Log_time=0.0;
@@ -811,10 +797,6 @@ void gyroCalibration(void)
 }
 
 void variable_init(void)
-{
-}
-
-void printPQR(void)
 {
 }
 

@@ -6,8 +6,14 @@
 #define RED 0xff0000
 #define GREEN 0x00ff00
 
-#define AVERAGE 200
-#define KALMANWAIT 600
+#define AVERAGENUM 800
+
+#define INIT_MODE 0
+#define AVERAGE_MODE 1
+#define FLIGHT_MODE 2
+#define STAY_MODE 3
+#define LOG_MODE 4
+
 
 typedef struct
 {
@@ -61,27 +67,11 @@ class Filter
 
 //グローバル関数の宣言
 void init_atomfly(void);
-void test_rangefinder(void);
-void init_i2c();
-void init_pwm();
-
 void loop_400Hz(void);
-void control_init();
-void rate_control(void);
-void angle_control(void);
-void gyro_calibration(void);
-void variable_init(void);
-void log_output(void);
-void gpio_put(CRGB p, uint8_t state);
-void set_duty_fr(float duty);
-void set_duty_fl(float duty);
-void set_duty_rr(float duty);
-void set_duty_rl(float duty);
-void imu_mag_data_read(float* ax, float* ay, float* az, float* gx, float* gy, float* gz);
 
 //グローバル変数
-extern volatile uint8_t LockMode;
-extern volatile uint8_t Logoutputflag;
-extern volatile uint32_t S_time, E_time, D_time, S_time2, E_time2, D_time2;
+//extern volatile uint8_t LockMode;
+//extern volatile uint8_t Logoutputflag;
+//extern volatile uint32_t S_time, E_time, D_time, S_time2, E_time2, D_time2;
 
 #endif
