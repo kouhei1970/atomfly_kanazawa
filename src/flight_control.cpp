@@ -6,7 +6,7 @@
 #include <math.h>
 #include <MadgwickAHRS.h>
 #include "rc.hpp"
-#include "control.hpp"
+#include "flight_control.hpp"
 
 const int pwmFL = 22;
 const int pwmFR = 19;

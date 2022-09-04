@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <M5Atom.h>
 #include "rc.hpp"
-#include "control.hpp"
+#include "flight_control.hpp"
 
 //VL53L0X_ADDRESS           0x29
 //MPU6886_ADDRESS           0x69
