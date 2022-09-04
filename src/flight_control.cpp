@@ -339,8 +339,8 @@ void control_init(void)
   q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 19.0, 0.05, 0.005, 0.002, 0.0025);//Roll angle control gain
-  theta_pid.set_parameter( 15.0, 0.10, 0.002, 0.002, 0.0025);//Pitch angle control gain
+  phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
+  theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
   psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 }
 ///////////////////////////////////////////////////////////////////
@@ -369,7 +369,7 @@ void rate_control(void)
 
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
-  T_ref = (3.72*thlo*thlo*thlo -6.51*thlo*thlo + 3.79*thlo)*BATTERY_VOLTAGE;
+  T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
 
   //Error
   p_err = p_ref - p_rate;
@@ -382,8 +382,8 @@ void rate_control(void)
   R_com = r_pid.update(r_err);
 
   //Adjust Trim using PS3controller DPAD
-  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.001 - Stick[DPAD_LEFT]*0.001;
-  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.001 + Stick[DPAD_DOWN]*0.001; 
+  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.00001 - Stick[DPAD_LEFT]*0.00001;
+  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.00001 + Stick[DPAD_DOWN]*0.00001; 
 
   //Motor Control
   //正規化Duty
@@ -467,8 +467,8 @@ void angle_control(void)
 
   
   //Get angle ref 
-  Phi_ref   = 0.09 * M_PI * (Stick[AILERON] - Aileron_center);
-  Theta_ref = 0.09 * M_PI * (Stick[ELEVATOR] -Elevator_center);
+  Phi_ref   = 0.09 * M_PI * (Stick[AILERON] - Aileron_center) + Phi_trim;
+  Theta_ref = 0.09 * M_PI * (Stick[ELEVATOR] -Elevator_center) + Theta_trim;
   Psi_ref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
 
   //Error
@@ -635,8 +635,8 @@ void sensor_read(void)
   Wq = gx*DEG_TO_RAD;
   Wr = gz*DEG_TO_RAD;
 
-  Theta = Drone_ahrs.getRoll()*DEG_TO_RAD + Theta_trim;
-  Phi =   Drone_ahrs.getPitch()*DEG_TO_RAD + Phi_trim;
+  Theta = Drone_ahrs.getRoll()*DEG_TO_RAD;
+  Phi =   Drone_ahrs.getPitch()*DEG_TO_RAD;
   Psi =   Drone_ahrs.getYaw()*DEG_TO_RAD;
   
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
