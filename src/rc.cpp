@@ -144,6 +144,11 @@ void rc_end(void)
     Ps3.end();
 }
 
+bool rc_isconnected(void)
+{
+    return Ps3.isConnected();
+}
+
 void rc_demo()
 {
     if(!Ps3.isConnected())

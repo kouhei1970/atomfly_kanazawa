@@ -35,6 +35,7 @@ float pressure = 0.0;
 float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 float Acc_norm=0.0;
 quat_t Quat;
+float Over_g=0.0, Over_rate=0.0;
 
 //Times
 float Elapsed_time=0.0;
@@ -57,10 +58,10 @@ float Phi,Theta,Psi;
 float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
 float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
 float Pref=0.0,Qref=0.0,Rref=0.0;
-float Phi_trim   = 0.0;
-float Theta_trim = -0.04;
-float Psi_trim   = -0.0104;
-//Phi_trim:-0.040000 Theta_trim-0.010400
+float Phi_trim   =  0.0;
+float Theta_trim =  0.0;
+float Psi_trim   = 0.0;
+//Phi_trim:0.016450 Theta_trim:0.000860
 
 //Log
 uint16_t LogdataCounter=0;
@@ -75,8 +76,8 @@ float Logdata[LOGDATANUM];
 uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1;
-float Angle_control_on_duty_threshold = 0.2;
-float Rate_control_on_duty_threshold = 0.4;
+float Rate_control_on_duty_threshold = 0.5;
+float Angle_control_on_duty_threshold = 0.6;
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
 CRGB Led_color = 0x000000;
@@ -338,8 +339,8 @@ void control_init(void)
   q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 19.0, 0.05, 0.001, 0.002, 0.0025);//Roll angle control gain
-  theta_pid.set_parameter( 15.0, 0.10, 0.001, 0.002, 0.0025);//Pitch angle control gain
+  phi_pid.set_parameter  ( 19.0, 0.05, 0.005, 0.002, 0.0025);//Roll angle control gain
+  theta_pid.set_parameter( 15.0, 0.10, 0.002, 0.002, 0.0025);//Pitch angle control gain
   psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 }
 ///////////////////////////////////////////////////////////////////
@@ -368,7 +369,7 @@ void rate_control(void)
 
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
-  T_ref = (3.2*thlo*thlo*thlo -5.49*thlo*thlo + 3.29*thlo)*BATTERY_VOLTAGE;
+  T_ref = (3.72*thlo*thlo*thlo -6.51*thlo*thlo + 3.79*thlo)*BATTERY_VOLTAGE;
 
   //Error
   p_err = p_ref - p_rate;
@@ -381,15 +382,15 @@ void rate_control(void)
   R_com = r_pid.update(r_err);
 
   //Adjust Trim using PS3controller DPAD
-  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.0001 - Stick[DPAD_LEFT]*0.0001;
-  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.0001 + Stick[DPAD_DOWN]*0.0001; 
+  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.001 - Stick[DPAD_LEFT]*0.001;
+  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.001 + Stick[DPAD_DOWN]*0.001; 
 
   //Motor Control
   //正規化Duty
-  FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)/BATTERY_VOLTAGE-Phi_trim+Theta_trim;
-  FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE+Phi_trim+Theta_trim;
-  RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE-Phi_trim-Theta_trim;
-  RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE+Phi_trim-Theta_trim;
+  FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)/BATTERY_VOLTAGE;//-Phi_trim+Theta_trim;
+  FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE;//+Phi_trim+Theta_trim;
+  RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE;//-Phi_trim-Theta_trim;
+  RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE;//+Phi_trim-Theta_trim;
   
   const float minimum_duty=0.0;
   const float maximum_duty=0.99;
@@ -407,45 +408,53 @@ void rate_control(void)
   if (RL_duty > maximum_duty) RL_duty = maximum_duty;
 
   //Duty set
-  if(T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold)
+  if(rc_isconnected())
   {
-    Led_color=0xffff00;
-    motor_stop();
-    p_pid.reset();
-    q_pid.reset();
-    r_pid.reset();
-    Pref=0.0;
-    Qref=0.0;
-    Rref=0.0;
-    //Aileron_center  = Stick[AILERON];
-    //Elevator_center = Stick[ELEVATOR];
-    //Rudder_center   = Stick[RUDDER];
-    Phi_bias   = Phi;
-    Theta_bias = Theta;
-    Psi_bias   = Psi;
-    
-  }
-  else if(T_ref/BATTERY_VOLTAGE < Rate_control_on_duty_threshold)
-  {
-    Led_color=0xff0077;
-    p_pid.reset();
-    q_pid.reset();
-    r_pid.reset();
-    Pref=0.0;
-    Qref=0.0;
-    Rref=0.0;
-  }
-  else
-  {
-    if (OverG_flag==0){
-      set_duty_fr(FR_duty);
-      set_duty_fl(FL_duty);
-      set_duty_rr(RR_duty);
-      set_duty_rl(RL_duty);
+    if(T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold)
+    {
+      Led_color=0xffff00;
+      motor_stop();
+      p_pid.reset();
+      q_pid.reset();
+      r_pid.reset();
+      Pref=0.0;
+      Qref=0.0;
+      Rref=0.0;
+      //Aileron_center  = Stick[AILERON];
+      //Elevator_center = Stick[ELEVATOR];
+      //Rudder_center   = Stick[RUDDER];
+      Phi_bias   = Phi;
+      Theta_bias = Theta;
+      Psi_bias   = Psi;
       
     }
-    else motor_stop();
-    //Serial.printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
+    else if(T_ref/BATTERY_VOLTAGE < Rate_control_on_duty_threshold)
+    {
+      Led_color=0xff0077;
+      if (OverG_flag==0){
+        set_duty_fr(FR_duty);
+        set_duty_fl(FL_duty);
+        set_duty_rr(RR_duty);
+        set_duty_rl(RL_duty);      
+      }
+      Pref=0.0;
+      Qref=0.0;
+      Rref=0.0;
+    }
+    else
+    {
+      if (OverG_flag==0){
+        set_duty_fr(FR_duty);
+        set_duty_fl(FL_duty);
+        set_duty_rr(RR_duty);
+        set_duty_rl(RL_duty);      
+      }
+      else motor_stop();
+      //Serial.printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
+    }
+  }
+  else{
+    motor_stop();
   } 
 }
 
@@ -458,8 +467,8 @@ void angle_control(void)
 
   
   //Get angle ref 
-  Phi_ref   = 0.4 * M_PI * (Stick[AILERON] - Aileron_center);
-  Theta_ref = 0.4 * M_PI * (Stick[ELEVATOR] -Elevator_center);
+  Phi_ref   = 0.09 * M_PI * (Stick[AILERON] - Aileron_center);
+  Theta_ref = 0.09 * M_PI * (Stick[ELEVATOR] -Elevator_center);
   Psi_ref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
 
   //Error
@@ -484,7 +493,6 @@ void angle_control(void)
     Theta_bias = Theta;
     Psi_bias   = Psi;
     /////////////////////////////////////
-    //Serial.println("Disenable angle  control");
   }
   else
   {
@@ -492,7 +500,6 @@ void angle_control(void)
     Pref = phi_pid.update(phi_err);
     Qref = theta_pid.update(theta_err);
     Rref = Psi_ref;//psi_pid.update(psi_err);//Yawは角度制御しない
-    //Serial.println("Enable angle  control");
   }
 
   //Logging(100Hz)
@@ -617,6 +624,8 @@ void sensor_read(void)
 
   M5.IMU.getAccelData(&ax, &ay, &az);
   M5.IMU.getGyroData(&gx, &gy, &gz);
+  ax = ax;
+  ay = ay;
   Drone_ahrs.updateIMU(gx-Qbias*RAD_TO_DEG, gy-Pbias*RAD_TO_DEG, gz-Rbias*RAD_TO_DEG, ax, ay, az);
 
   Ax = ay;
@@ -626,15 +635,23 @@ void sensor_read(void)
   Wq = gx*DEG_TO_RAD;
   Wr = gz*DEG_TO_RAD;
 
-  Theta = Drone_ahrs.getRoll()*DEG_TO_RAD;
-  Phi = Drone_ahrs.getPitch()*DEG_TO_RAD;
-  Psi = Drone_ahrs.getYaw()*DEG_TO_RAD;
+  Theta = Drone_ahrs.getRoll()*DEG_TO_RAD + Theta_trim;
+  Phi =   Drone_ahrs.getPitch()*DEG_TO_RAD + Phi_trim;
+  Psi =   Drone_ahrs.getYaw()*DEG_TO_RAD;
   
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>11.0) OverG_flag = 1;
+  if (acc_norm>12.0) 
+  {
+    OverG_flag = 1;
+    if (Over_g == 0.0)Over_g = acc_norm;
+  }
   Acc_norm = acc_filter.update(acc_norm);
   rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
-  if (rate_norm > 12.0) OverG_flag =1;
+  if (rate_norm > 17.0)
+  {
+    OverG_flag = 1;
+    if (Over_rate == 0.0) Over_rate =rate_norm;
+  } 
 
 #if 0
   Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
@@ -765,7 +782,8 @@ void log_output(void)
     phi_pid.printGain();
     Serial2.printf("#Pitch angle PID gain\r\n");
     theta_pid.printGain();
-    Serial2.printf("#Phi_trim:%f Theta_trim%f\r\n", Phi_trim, Theta_trim);
+    Serial2.printf("#Phi_trim:%f Theta_trim:%f\r\n", Phi_trim, Theta_trim);
+    Serial2.printf("#Over_g:%f Over_rate:%f\r\n", Over_g, Over_rate);
   }
   if(LogdataCounter+DATANUM<LOGDATANUM)
   {
