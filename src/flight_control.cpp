@@ -662,7 +662,7 @@ void angle_control(void)
   //psi_err   = Psi_ref   - (Psi   - Psi_bias);
   
   //PID Control
-  if (T_ref/BATTERY_VOLTAGE < Flight_duty)
+  if (T_ref/BATTERY_VOLTAGE < Angle_control_on_duty_threshold)
   {
     Pref=0.0;
     Qref=0.0;
