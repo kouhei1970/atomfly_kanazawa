@@ -428,6 +428,7 @@ void rate_control(void)
       Psi_bias   = Psi;
       
     }
+    /*
     else if(T_ref/BATTERY_VOLTAGE < Rate_control_on_duty_threshold)
     {
       Led_color=0xff0077;
@@ -441,6 +442,7 @@ void rate_control(void)
       Qref=0.0;
       Rref=0.0;
     }
+    */
     else
     {
       if (OverG_flag==0){
