@@ -76,8 +76,8 @@ float Logdata[LOGDATANUM];
 uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1;
-float Rate_control_on_duty_threshold = 0.5;
-float Angle_control_on_duty_threshold = 0.6;
+//float Rate_control_on_duty_threshold = 0.5;
+float Angle_control_on_duty_threshold = 0.4;
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
 CRGB Led_color = 0x000000;
@@ -126,6 +126,7 @@ void init_atomfly(void)
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
   rc_init();
+  while(!rc_isconnected());
   M5.IMU.Init();
   Wire.begin(25,21,400000UL);
   Serial.println("VLX53LOX test started.");
