@@ -524,7 +524,7 @@ void init_i2c()
   Wire.begin(25,21);          // join i2c bus (address optional for master)
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
-  for (byte i = 8; i < 120; i++)
+  for (short i = 0; i < 256; i++)
   {
     Wire.beginTransmission (i);          // Begin I2C transmission Address (i)
     if (Wire.endTransmission () == 0)  // Receive 0 = success (ACK response) 
