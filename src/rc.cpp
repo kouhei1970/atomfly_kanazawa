@@ -5,7 +5,7 @@ int player = 0;
 int battery = 0;
 
 //RC
-volatile float Stick[16];
+volatile float Stick[16]={0.0};
 
 
 void notify()
@@ -19,16 +19,41 @@ void notify()
     if( Ps3.event.button_up.circle )
     {
         //Serial.println("Released the circle button");
+        Stick[LOG] = 0;
     }
+    
     if( Ps3.event.button_down.cross )
     {
         //Serial.println("Started pressing the cross button");
-        Stick[LOG] = 0;
+        //Stick[LOG] = 0;
     }
     if( Ps3.event.button_up.cross )
     {
         //Serial.println("Released the cross button");
     }
+    
+    if( Ps3.event.button_down.triangle )
+    {
+        //Serial.println("Started pressing the triangle button");
+        Stick[ALTITUDE_ON] = 1;
+    }
+    if( Ps3.event.button_up.triangle )
+    {
+        //Serial.println("Released the triangle button");
+        Stick[ALTITUDE_ON] = 0;
+    }
+    
+    if( Ps3.event.button_down.square )
+    {
+        //Serial.println("Started pressing the square button");
+        Stick[ALTITUDE_OFF] = 1;
+    }
+    if( Ps3.event.button_up.square )
+    {
+        //Serial.println("Released the square button");
+        Stick[ALTITUDE_OFF] = 0;
+    }
+
 
     if( Ps3.event.button_down.up )
     {

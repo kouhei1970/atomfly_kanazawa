@@ -8,6 +8,7 @@
 #include "rc.hpp"
 #include "flight_control.hpp"
 #include "pid.hpp"
+#include "alt_kalman.hpp"
 
 const int pwmFL = 22;
 const int pwmFR = 19;
@@ -28,12 +29,15 @@ double r_rand = 180 / PI;
 
 Adafruit_BMP280 bme;
 Madgwick Drone_ahrs;
+Alt_kalman kalman;
+
 
 float pressure = 0.0;
 
 //Sensor data
 float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 float Acc_norm=0.0;
+uint16_t Range;
 quat_t Quat;
 float Over_g=0.0, Over_rate=0.0;
 
@@ -51,11 +55,14 @@ uint16_t LedBlinkCounter=0;
 //Control 
 float FR_duty, FL_duty, RR_duty, RL_duty;
 float P_com, Q_com, R_com;
-float T_ref;
+float T_ref=0.0, T_offset=0.0;
+float Range_bias;
+float Az_bias=0.0;
 float Pbias=0.0,Qbias=0.0,Rbias=0.0;
 float Phi_bias=0.0,Theta_bias=0.0,Psi_bias=0.0;  
 float Phi,Theta,Psi;
-float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
+float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0,Altitude_ref=0.0;
+float W_ref=0.0;
 float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
 float Pref=0.0,Qref=0.0,Rref=0.0;
 float Phi_trim   =  0.0;
@@ -78,8 +85,12 @@ volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1;
 float Rate_control_on_duty_threshold = 0.5;
 float Angle_control_on_duty_threshold = 0.6;
-uint8_t OverG_flag = 0;
+volatile uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
+volatile uint8_t Altitude_control_start_flag =0;
+volatile uint8_t Altitude_control_end_flag =0;
+volatile uint8_t Altitude_control_flag =0;
+volatile uint8_t Log_start_flag = 0;
 CRGB Led_color = 0x000000;
 
 //PID object and etc.
@@ -89,6 +100,8 @@ PID r_pid;
 PID phi_pid;
 PID theta_pid;
 PID psi_pid;
+PID alt_pid;
+PID w_pid;
 Filter acc_filter;
 
 void test_rangefinder(void);
@@ -99,6 +112,7 @@ void gyro_calibration(void);
 void variable_init(void);
 void log_output(void);
 void m5_atom_led(CRGB p, uint8_t state);
+void altitude_control(void);
 void rate_control(void);
 void sensor_read(void);
 void angle_control(void);
@@ -120,7 +134,7 @@ void IRAM_ATTR onTimer() {
 
 void init_atomfly(void)
 {
-  Mode = 0;
+  Mode = INIT_MODE;
   M5.dis.drawpix(0, BLUE);
   init_i2c();
   Serial.begin(115200);
@@ -140,7 +154,7 @@ void init_atomfly(void)
   timerAlarmEnable(timer);
   delay(500);
 
-  Mode = 1;
+  Mode = AVERAGE_MODE;
 }
 
 //Main loop
@@ -148,6 +162,7 @@ void loop_400Hz(void)
 {
   static uint8_t led=1;
 
+  Serial.printf("Mode=%d\n", Mode);
   while(Loop_flag==0);
   Loop_flag = 0;
 
@@ -177,6 +192,8 @@ void loop_400Hz(void)
       Aileron_center  += Stick[AILERON];
       Elevator_center += Stick[ELEVATOR];
       Rudder_center   += Stick[RUDDER];
+      Range_bias += Range;
+      Az_bias += Az;
       Pbias += Wp;
       Qbias += Wq;
       Rbias += Wr;
@@ -192,6 +209,8 @@ void loop_400Hz(void)
       Elevator_center = Elevator_center/AVERAGENUM;
       Aileron_center  = Aileron_center/AVERAGENUM;
       Rudder_center   = Rudder_center/AVERAGENUM;
+      Range_bias = Range_bias/AVERAGENUM;
+      Az_bias = Az_bias/AVERAGENUM;
       Pbias = Pbias/AVERAGENUM;
       Qbias = Qbias/AVERAGENUM;
       Rbias = Rbias/AVERAGENUM;
@@ -199,8 +218,9 @@ void loop_400Hz(void)
       Theta_bias = Theta_bias/AVERAGENUM;
       Psi_bias   = Psi_bias/AVERAGENUM;
 
+      kalman.init();
       //Mode change
-      Mode = 3;
+      Mode = STAY_MODE;
     }
     return;
   }
@@ -221,7 +241,7 @@ void loop_400Hz(void)
     {
       if(lock_com()==0){
         LockMode=0;
-        Mode=3;
+        Mode = STAY_MODE;
       }
       return;
     }
@@ -236,7 +256,10 @@ void loop_400Hz(void)
       if(Logflag==1)led=!led;
       else led=1;
     }
-   
+
+    //Altitude Control
+    altitude_control();
+
     //Angle Control
     angle_control();
 
@@ -247,6 +270,10 @@ void loop_400Hz(void)
   {
     motor_stop();
     OverG_flag = 0;
+    Altitude_control_flag = 0;
+    Altitude_control_start_flag = 0;
+    Altitude_control_end_flag = 0;
+
     if(LedBlinkCounter<10){
       m5_atom_led(GREEN, 1);
       LedBlinkCounter++;
@@ -277,14 +304,14 @@ void loop_400Hz(void)
       if(lock_com()==0)
       {
         LockMode=2;//Enable Flight
-        Mode=2;
+        Mode = FLIGHT_MODE;
       }
       return;
     }
 
     if(logdata_out_com()==1)
     {
-      Mode=4;
+      Mode = LOG_MODE;
       return;
     }
   }
@@ -326,7 +353,7 @@ void loop_400Hz(void)
 //  TC:    Time constant for Differential control filter
 //  STEP:  Control period
 //
-//  Example
+//  Example 
 //  Set roll rate control PID gain
 //  p_pid.set_parameter(2.5, 10.0, 0.45, 0.01, 0.001); 
 
@@ -342,6 +369,20 @@ void control_init(void)
   phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
   theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
   psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
+  //Altitude control
+  alt_pid.set_parameter(0.0008, 5.0, 0.01, 0.01, 0.05);
+  w_pid.set_parameter(0.5, 1.0, 0.0, 0.01, 0.05);
+
+  p_pid.reset();
+  q_pid.reset();
+  r_pid.reset();
+  phi_pid.reset();
+  theta_pid.reset();
+  psi_pid.reset();
+  alt_pid.reset();
+  w_pid.reset();
+
+
 }
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
@@ -353,6 +394,7 @@ void rate_control(void)
   float p_rate, q_rate, r_rate;
   float p_ref, q_ref, r_ref;
   float p_err, q_err, r_err;
+  static uint8_t chat_tri=0, chat_squ=0, chat_cir=0, chat_cro=0;
 
   //Read Sensor Value
   sensor_read();
@@ -367,10 +409,32 @@ void rate_control(void)
   q_ref = Qref;
   r_ref = Rref;
 
+  const uint8_t chat_th = 80;
+  //制御スイッチ確認(誤動作対策)
+  //Triangle button (Altitude control on)
+  if ((int8_t)Stick[ALTITUDE_ON])chat_tri++;
+  else chat_tri = 0;
+  if (chat_tri==chat_th)Altitude_control_start_flag = 1;
+  //Square button (Altutude control off)
+  if ((int8_t)Stick[ALTITUDE_OFF])chat_squ++;
+  else chat_squ = 0;
+  if (chat_squ==50)Altitude_control_end_flag = 1;
+  //Circle Button (Log start)
+  if ((int8_t)Stick[LOG])chat_cir++;
+  else chat_cir = 0;
+  if (chat_cir==chat_th)Log_start_flag = 1;
+
+
+
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
-  T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
-
+  if (Altitude_control_flag == 0)
+  {
+    //T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
+    T_ref = T_ref - 0.05;
+    if (T_ref<0.0) T_ref = 0.0;
+  }
+  
   //Error
   p_err = p_ref - p_rate;
   q_err = q_ref - q_rate;
@@ -380,7 +444,7 @@ void rate_control(void)
   P_com = p_pid.update(p_err);
   Q_com = q_pid.update(q_err);
   R_com = r_pid.update(r_err);
-
+ 
   //Adjust Trim using PS3controller DPAD
   Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.00001 - Stick[DPAD_LEFT]*0.00001;
   Theta_trim = Theta_trim - Stick[DPAD_UP]*0.00001 + Stick[DPAD_DOWN]*0.00001; 
@@ -391,7 +455,9 @@ void rate_control(void)
   FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE;//+Phi_trim+Theta_trim;
   RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE;//-Phi_trim-Theta_trim;
   RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE;//+Phi_trim-Theta_trim;
+
   
+
   const float minimum_duty=0.0;
   const float maximum_duty=0.99;
 
@@ -457,6 +523,10 @@ void rate_control(void)
   }
   else{
     motor_stop();
+    for (uint8_t i=0;i<16;)Stick[i]=0.0;
+    Altitude_control_flag = 0;
+    Altitude_control_start_flag = 0;
+    Altitude_control_end_flag = 0;
   } 
 }
 
@@ -510,7 +580,68 @@ void angle_control(void)
   if(cnt==4 )cnt=0;
 }
 
+void altitude_control(void)
+{
+  float altitude_err;
+  float w_err;
+  static uint8_t cnt = 0;
+  static float t=0.0;
+  //static uint8_t flag =0;
 
+  //Serial.printf("Alt_flag=%d T_ref=%f9.3 Log_flag=%d\n", Altitude_control_flag, T_ref, Log_start_flag);
+
+  //Period 20Hz
+  cnt++;
+  if(cnt>20) cnt=0;
+  if(cnt!=0) return;
+  
+  //Command select
+  if (Altitude_control_flag == 0 && Altitude_control_start_flag == 1)
+  {
+    Altitude_control_start_flag = 0;
+    Altitude_ref = 0.0;//(float)Range;
+    T_offset = 0.0;
+    Altitude_control_flag = 1;
+  }
+  else if (Altitude_control_flag == 1 && Altitude_control_end_flag == 1)
+  {
+    Altitude_control_end_flag = 0;
+    Altitude_control_start_flag = 0;
+    Altitude_control_flag = 0;
+    alt_pid.reset();
+    w_pid.reset();
+    T_ref = 0.0;
+    t = 0.0;
+    W_ref = 0.0;
+
+
+    t = 0.0;
+  }
+ 
+  if(Altitude_control_flag == 0)
+  {
+    alt_pid.reset();
+    w_pid.reset();
+    T_ref = 0.0;
+    t = 0.0;
+    W_ref = 0.0;
+  }
+  else{  
+    //Error
+    T_offset = 2.4;
+    if (T_offset>2.5)T_offset=2.5;
+    //PID Control
+    Altitude_ref = Stick[THROTTLE]*800;
+    altitude_err   = Altitude_ref - kalman.Altitude;
+    W_ref = alt_pid.update(altitude_err);
+    w_err = W_ref - kalman.Velocity;
+    T_ref = w_pid.update(w_err) + T_offset;
+    //Serial.printf("%11.3f %11.3f %11.3f %11.3f %11.3f\n\r", t, Az, kalman.Velocity, kalman.Altitude, (float)Range/1000.0);
+    t = t + 0.05;
+    if (T_ref>BATTERY_VOLTAGE)T_ref = BATTERY_VOLTAGE;
+    if (T_ref<0)T_ref =0.0;
+  }  
+}
 
 void m5_atom_led(CRGB p, uint8_t state)
 {
@@ -623,7 +754,10 @@ void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 void sensor_read(void)
 {
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
+  byte val;
+  static uint8_t range_flag=0;
 
+  //S_time = micros();
   M5.IMU.getAccelData(&ax, &ay, &az);
   M5.IMU.getGyroData(&gx, &gy, &gz);
   ax = ax;
@@ -655,19 +789,38 @@ void sensor_read(void)
     if (Over_rate == 0.0) Over_rate =rate_norm;
   } 
 
+  if(range_flag==0)
+  {
+    write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+    range_flag = 1;
+  }
+  val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
+  if (val & 0x01)
+  {
+    range_flag = 0;
+    read_block_data_at(0x14, 12);
+    Range = makeuint16(gbuf[11], gbuf[10]);
+
+  } 
+  kalman.update(((float)Range-Range_bias)/1000.0, (Az-Az_bias)*9.80665);
+
+  //E_time = micros();
+  //D_time = E_time - S_time;
 #if 0
-  Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
-   Elapsed_time, D_time, Ax, Ay, Az, Wp, Wq, Wr, Phi, Theta, Psi);
+  Serial.printf("%5d %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
+   D_time, Range, Ax, Ay, Az, Wp, Wq, Wr, Phi, Theta, Psi);
 #endif
 }
 
+//Stick の下外を確認
 uint8_t lock_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( Stick[LOG] == 0 
-   && Stick[RUDDER]   < -0.4
-   && Stick[AILERON]  < -0.4 
-   && Stick[ELEVATOR] > 0.4 )
+  if( (int8_t)Stick[LOG] == 0 
+    && Stick[THROTTLE] <= 0.0
+    && Stick[RUDDER]   < -0.4
+    && Stick[AILERON]  < -0.4 
+    && Stick[ELEVATOR] > 0.4 )
   { 
     chatta++;
     if(chatta>50){
@@ -683,14 +836,15 @@ uint8_t lock_com(void)
   return state;
 }
 
+//Stick の下うち
 uint8_t logdata_out_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( Stick[LOG] == 0 
-   && Stick[THROTTLE] == 0 
-   && Stick[RUDDER]  > 0.4
-   && Stick[AILERON] > 0.4 
-   && Stick[ELEVATOR] > 0.4)
+  if( (int8_t)Stick[LOG] == 0 
+    && Stick[THROTTLE] <= 0.0 
+    && Stick[RUDDER]  > 0.4
+    && Stick[AILERON] > 0.4 
+    && Stick[ELEVATOR] > 0.4)
   {
     chatta++;
     if(chatta>50){
@@ -717,24 +871,28 @@ void motor_stop(void)
 void logging(void)
 {  
   //Logging
-  if(Stick[LOG] == 1)
+  if(Log_start_flag == 1)
   { 
     if(Logflag==0)
     {
       Logflag=1;
       LogdataCounter=0;
     }
+  }
+  if(Logflag == 1)
+  {
+    Log_start_flag = 0;
     if(LogdataCounter+DATANUM<LOGDATANUM)
     {
       Logdata[LogdataCounter++]=Wp;//-Pbias;              //1
       Logdata[LogdataCounter++]=Wq;//-Qbias;              //2
-      Logdata[LogdataCounter++]=Wr;//-Rbias;              //3
-      Logdata[LogdataCounter++]=Ax;                       //4
-      Logdata[LogdataCounter++]=Ay;                       //5
+      Logdata[LogdataCounter++]=kalman.Velocity;//-Rbias; //3
+      Logdata[LogdataCounter++]=Range;                    //4
+      Logdata[LogdataCounter++]=kalman.Altitude;          //5
       Logdata[LogdataCounter++]=Az;                       //6
-      Logdata[LogdataCounter++]=Pref;                     //7
+      Logdata[LogdataCounter++]=Range_bias;                     //7
       Logdata[LogdataCounter++]=Qref;                     //8
-      Logdata[LogdataCounter++]=Rref;                     //9
+      Logdata[LogdataCounter++]=W_ref;                    //9
       Logdata[LogdataCounter++]=Phi-Phi_bias;             //10
 
       Logdata[LogdataCounter++]=Theta-Theta_bias;         //11

@@ -10,6 +10,9 @@
 #define DPAD_DOWN 6
 #define DPAD_LEFT 7
 #define DPAD_RIGHT 8
+#define ALTITUDE_ON 9
+#define ALTITUDE_OFF 10
+
 #define RUDDER_MAX 127
 #define RUDDER_MIN -128
 #define ELEVATOR_MAX 127

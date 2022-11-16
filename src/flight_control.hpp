@@ -6,7 +6,7 @@
 #define RED 0xff0000
 #define GREEN 0x00ff00
 
-#define AVERAGENUM 800
+#define AVERAGENUM 1200
 
 #define INIT_MODE 0
 #define AVERAGE_MODE 1
