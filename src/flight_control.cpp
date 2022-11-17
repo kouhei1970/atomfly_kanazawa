@@ -58,8 +58,8 @@ float Phi,Theta,Psi;
 float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
 float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
 float Pref=0.0,Qref=0.0,Rref=0.0;
-float Phi_trim   =  0.0;
-float Theta_trim =  0.0;
+float Phi_trim   =  0.00;
+float Theta_trim =  0.00;
 float Psi_trim   = 0.0;
 //Phi_trim:0.016450 Theta_trim:0.000860
 
@@ -77,7 +77,7 @@ uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1;
 //float Rate_control_on_duty_threshold = 0.5;
-float Angle_control_on_duty_threshold = 0.4;
+float Angle_control_on_duty_threshold = 0.42;
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
 CRGB Led_color = 0x000000;
@@ -120,8 +120,9 @@ void IRAM_ATTR onTimer() {
 
 void init_atomfly(void)
 {
-  Mode = 0;
-  M5.dis.drawpix(0, BLUE);
+  Mode = INIT_MODE;
+  M5.dis.drawpix(0, WHITE);
+  init_pwm();
   init_i2c();
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
@@ -132,7 +133,6 @@ void init_atomfly(void)
   Serial.println("VLX53LOX test started.");
   Serial.println(F("BMP280 test started...\n"));
   test_rangefinder();
-  init_pwm();
   Drone_ahrs.begin(400.0);
   control_init();
   timer = timerBegin(0, 80, true);
@@ -141,7 +141,7 @@ void init_atomfly(void)
   timerAlarmEnable(timer);
   delay(500);
 
-  Mode = 1;
+  //Mode = AVERAGE_MODE;
 }
 
 //Main loop
@@ -165,6 +165,7 @@ void loop_400Hz(void)
       Phi_bias = 0.0;
       Theta_bias = 0.0;
       Psi_bias = 0.0;
+      Mode = AVERAGE_MODE;
       return;
   }
   else if (Mode == AVERAGE_MODE)
@@ -174,6 +175,7 @@ void loop_400Hz(void)
     if (BiasCounter < AVERAGENUM)
     {
       //Sensor Read
+      M5.dis.drawpix(0, PERPLE);
       sensor_read();
       Aileron_center  += Stick[AILERON];
       Elevator_center += Stick[ELEVATOR];
@@ -201,7 +203,7 @@ void loop_400Hz(void)
       Psi_bias   = Psi_bias/AVERAGENUM;
 
       //Mode change
-      Mode = 3;
+      Mode = STAY_MODE;
     }
     return;
   }
@@ -222,7 +224,7 @@ void loop_400Hz(void)
     {
       if(lock_com()==0){
         LockMode=0;
-        Mode=3;
+        Mode=STAY_MODE;
       }
       return;
     }
@@ -278,14 +280,14 @@ void loop_400Hz(void)
       if(lock_com()==0)
       {
         LockMode=2;//Enable Flight
-        Mode=2;
+        Mode=FLIGHT_MODE;
       }
       return;
     }
 
     if(logdata_out_com()==1)
     {
-      Mode=4;
+      Mode=LOG_MODE;
       return;
     }
   }
@@ -340,9 +342,14 @@ void control_init(void)
   q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
-  theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
+  phi_pid.set_parameter  ( 15.0, 0.3, 0.003, 0.002, 0.0025);//Roll angle control gain
+  theta_pid.set_parameter( 10.0, 0.3, 0.002, 0.002, 0.0025);//Pitch angle control gain
   psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
+  
+  //phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
+  //theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
+  //psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
+
 }
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
@@ -383,8 +390,8 @@ void rate_control(void)
   R_com = r_pid.update(r_err);
 
   //Adjust Trim using PS3controller DPAD
-  Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.00001 - Stick[DPAD_LEFT]*0.00001;
-  Theta_trim = Theta_trim - Stick[DPAD_UP]*0.00001 + Stick[DPAD_DOWN]*0.00001; 
+  //Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.00001 - Stick[DPAD_LEFT]*0.00001;
+  //Theta_trim = Theta_trim - Stick[DPAD_UP]*0.00001 + Stick[DPAD_DOWN]*0.00001; 
 
   //Motor Control
   //正規化Duty
@@ -452,12 +459,18 @@ void rate_control(void)
         set_duty_rr(RR_duty);
         set_duty_rl(RL_duty);      
       }
-      else motor_stop();
+      else 
+      {
+        motor_stop();
+        OverG_flag=0;
+        Mode = STAY_MODE;
+      }
       //Serial.printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
     }
   }
   else{
     motor_stop();
+    
   } 
 }
 
@@ -468,29 +481,22 @@ void angle_control(void)
   //float e23,e33,e13,e11,e12;
   static uint8_t cnt=0;
 
-  
-  //Get angle ref 
-  Phi_ref   = 0.09 * M_PI * (Stick[AILERON] - Aileron_center) + Phi_trim;
-  Theta_ref = 0.09 * M_PI * (Stick[ELEVATOR] -Elevator_center) + Theta_trim;
+  //Yaw control
   Psi_ref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
+  Rref = Psi_ref;
 
-  //Error
-  phi_err   = Phi_ref   - (Phi   - Phi_bias);
-  theta_err = Theta_ref - (Theta - Theta_bias);
-  //psi_err   = Psi_ref   - (Psi   - Psi_bias);
-  
   //PID Control
   if (T_ref/BATTERY_VOLTAGE < Angle_control_on_duty_threshold)
   {
     Pref=0.0;
     Qref=0.0;
-    Rref=0.0;
+    //Rref=0.0;
     phi_pid.reset();
     theta_pid.reset();
     psi_pid.reset();
-    //Aileron_center  = Stick[AILERON];
-    //Elevator_center = Stick[ELEVATOR];
-    //Rudder_center   = Stick[RUDDER];
+    Aileron_center  = Stick[AILERON];
+    Elevator_center = Stick[ELEVATOR];
+    Rudder_center   = Stick[RUDDER];
     /////////////////////////////////////
     Phi_bias   = Phi;
     Theta_bias = Theta;
@@ -500,9 +506,17 @@ void angle_control(void)
   else
   {
     Led_color = RED;
+    //Get Roll and Pitch angle ref 
+    Phi_ref   = 0.12 * M_PI * (Stick[AILERON] - Aileron_center)+ Phi_trim;
+    Theta_ref = 0.12 * M_PI * (Stick[ELEVATOR] -Elevator_center)+ Theta_trim;
+
+    //Error
+    phi_err   = Phi_ref   - (Phi   - Phi_bias);
+    theta_err = Theta_ref - (Theta - Theta_bias);
+    //psi_err   = Psi_ref   - (Psi   - Psi_bias); 
     Pref = phi_pid.update(phi_err);
     Qref = theta_pid.update(theta_err);
-    Rref = Psi_ref;//psi_pid.update(psi_err);//Yawは角度制御しない
+    //Rref = Psi_ref;//psi_pid.update(psi_err);//Yawは角度制御しない
   }
 
   //Logging(100Hz)
@@ -642,6 +656,7 @@ void sensor_read(void)
   Phi =   Drone_ahrs.getPitch()*DEG_TO_RAD;
   Psi =   Drone_ahrs.getYaw()*DEG_TO_RAD;
   
+  #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
   if (acc_norm>12.0) 
   {
@@ -655,6 +670,7 @@ void sensor_read(void)
     OverG_flag = 1;
     if (Over_rate == 0.0) Over_rate =rate_norm;
   } 
+  #endif
 
 #if 0
   Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
