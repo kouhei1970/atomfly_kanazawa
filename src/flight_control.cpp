@@ -527,8 +527,6 @@ void angle_control(void)
   if(cnt==4 )cnt=0;
 }
 
-
-
 void m5_atom_led(CRGB p, uint8_t state)
 {
   if (state ==1) M5.dis.drawpix(0, p);
