@@ -342,13 +342,13 @@ void control_init(void)
   q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 15.0, 0.3, 0.003, 0.002, 0.0025);//Roll angle control gain
-  theta_pid.set_parameter( 10.0, 0.3, 0.002, 0.002, 0.0025);//Pitch angle control gain
-  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
-  
-  //phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
-  //theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
+  //phi_pid.set_parameter  ( 15.0, 0.3, 0.003, 0.002, 0.0025);//Roll angle control gain
+  //theta_pid.set_parameter( 10.0, 0.3, 0.002, 0.002, 0.0025);//Pitch angle control gain
   //psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
+  
+    phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
+    theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
+    psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 
 }
 ///////////////////////////////////////////////////////////////////
@@ -378,7 +378,7 @@ void rate_control(void)
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
   T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
-
+  
   //Error
   p_err = p_ref - p_rate;
   q_err = q_ref - q_rate;
@@ -493,11 +493,13 @@ void angle_control(void)
     //Rref=0.0;
     phi_pid.reset();
     theta_pid.reset();
-    psi_pid.reset();
+    psi_pid.reset();    
+    /////////////////////////////////////
+    // 以下の処理で、角度制御が有効になった時に
+    // 急激な目標値が発生して機体が不安定になるのを防止する
     Aileron_center  = Stick[AILERON];
     Elevator_center = Stick[ELEVATOR];
     Rudder_center   = Stick[RUDDER];
-    /////////////////////////////////////
     Phi_bias   = Phi;
     Theta_bias = Theta;
     Psi_bias   = Psi;
