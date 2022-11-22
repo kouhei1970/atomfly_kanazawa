@@ -58,8 +58,8 @@ float Phi,Theta,Psi;
 float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
 float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
 float Pref=0.0,Qref=0.0,Rref=0.0;
-float Phi_trim   =  0.00;
-float Theta_trim =  0.00;
+float Phi_trim   =  0.0;
+float Theta_trim =  0.0;
 float Psi_trim   = 0.0;
 //Phi_trim:0.016450 Theta_trim:0.000860
 
@@ -76,8 +76,7 @@ float Logdata[LOGDATANUM];
 uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1;
-//float Rate_control_on_duty_threshold = 0.5;
-float Angle_control_on_duty_threshold = 0.42;
+float Angle_control_on_duty_threshold = 0.3;
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
 CRGB Led_color = 0x000000;
@@ -127,7 +126,6 @@ void init_atomfly(void)
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
   rc_init();
-  while(!rc_isconnected());
   M5.IMU.Init();
   Wire.begin(25,21,400000UL);
   Serial.println("VLX53LOX test started.");
@@ -139,8 +137,7 @@ void init_atomfly(void)
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 2500, true);
   timerAlarmEnable(timer);
-  delay(500);
-
+  while(!rc_isconnected());
   //Mode = AVERAGE_MODE;
 }
 
@@ -342,13 +339,13 @@ void control_init(void)
   q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  //phi_pid.set_parameter  ( 15.0, 0.3, 0.003, 0.002, 0.0025);//Roll angle control gain
-  //theta_pid.set_parameter( 10.0, 0.3, 0.002, 0.002, 0.0025);//Pitch angle control gain
-  //psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
+  phi_pid.set_parameter  ( 15.0, 0.3, 0.003, 0.002, 0.0025);//Roll angle control gain
+  theta_pid.set_parameter( 10.0, 0.3, 0.002, 0.002, 0.0025);//Pitch angle control gain
+  psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
   
-    phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
-    theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
-    psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
+  //phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
+  //theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
+  //psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 
 }
 ///////////////////////////////////////////////////////////////////
@@ -365,6 +362,14 @@ void rate_control(void)
   //Read Sensor Value
   sensor_read();
 
+  //Throttle curve conversion　スロットルカーブ補正
+  float thlo = Stick[THROTTLE];
+  //T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
+  T_ref = thlo*BATTERY_VOLTAGE;
+
+  //Yaw control command
+  Rref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
+
   //Control angle velocity
   p_rate = Wp - Pbias;
   q_rate = Wq - Qbias;
@@ -375,10 +380,6 @@ void rate_control(void)
   q_ref = Qref;
   r_ref = Rref;
 
-  //Throttle curve conversion　スロットルカーブ補正
-  float thlo = Stick[THROTTLE];
-  T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
-  
   //Error
   p_err = p_ref - p_rate;
   q_err = q_ref - q_rate;
@@ -428,29 +429,15 @@ void rate_control(void)
       Pref=0.0;
       Qref=0.0;
       Rref=0.0;
-      //Aileron_center  = Stick[AILERON];
-      //Elevator_center = Stick[ELEVATOR];
-      //Rudder_center   = Stick[RUDDER];
+
+      Aileron_center  = Stick[AILERON];
+      Elevator_center = Stick[ELEVATOR];
+      Rudder_center   = Stick[RUDDER];
       Phi_bias   = Phi;
       Theta_bias = Theta;
       Psi_bias   = Psi;
       
     }
-    /*
-    else if(T_ref/BATTERY_VOLTAGE < Rate_control_on_duty_threshold)
-    {
-      Led_color=0xff0077;
-      if (OverG_flag==0){
-        set_duty_fr(FR_duty);
-        set_duty_fl(FL_duty);
-        set_duty_rr(RR_duty);
-        set_duty_rl(RL_duty);      
-      }
-      Pref=0.0;
-      Qref=0.0;
-      Rref=0.0;
-    }
-    */
     else
     {
       if (OverG_flag==0){
@@ -481,9 +468,6 @@ void angle_control(void)
   //float e23,e33,e13,e11,e12;
   static uint8_t cnt=0;
 
-  //Yaw control
-  Psi_ref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
-  Rref = Psi_ref;
 
   //PID Control
   if (T_ref/BATTERY_VOLTAGE < Angle_control_on_duty_threshold)
@@ -493,13 +477,13 @@ void angle_control(void)
     //Rref=0.0;
     phi_pid.reset();
     theta_pid.reset();
-    psi_pid.reset();    
+    //psi_pid.reset();    
     /////////////////////////////////////
     // 以下の処理で、角度制御が有効になった時に
     // 急激な目標値が発生して機体が不安定になるのを防止する
     Aileron_center  = Stick[AILERON];
     Elevator_center = Stick[ELEVATOR];
-    Rudder_center   = Stick[RUDDER];
+    //Rudder_center   = Stick[RUDDER];
     Phi_bias   = Phi;
     Theta_bias = Theta;
     Psi_bias   = Psi;
@@ -509,8 +493,8 @@ void angle_control(void)
   {
     Led_color = RED;
     //Get Roll and Pitch angle ref 
-    Phi_ref   = 0.12 * M_PI * (Stick[AILERON] - Aileron_center)+ Phi_trim;
-    Theta_ref = 0.12 * M_PI * (Stick[ELEVATOR] -Elevator_center)+ Theta_trim;
+    Phi_ref   = 0.2 * M_PI * (Stick[AILERON] - Aileron_center)+ Phi_trim;
+    Theta_ref = 0.2 * M_PI * (Stick[ELEVATOR] - Elevator_center)+ Theta_trim;
 
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);

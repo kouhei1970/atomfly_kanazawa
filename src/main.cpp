@@ -11,7 +11,7 @@
 void setup() {  
   M5.begin(true, false, true);
   init_atomfly();
-  delay(1000);
+  delay(100);
 }
 
 //float Pitch,Roll,Yaw;
