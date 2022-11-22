@@ -137,46 +137,67 @@ volatile float Stick[16];
 // }
 
 // 受信コールバック
-void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
+void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len) {
   char macStr[18];
   char msg[1];
-  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  // Serial.printf("Last Packet Recv from: %s\n", macStr);
-//   Serial.printf("Last Packet Recv Data(%d): ", data_len);
-//   for ( int i = 0 ; i < data_len ; i++ ) {
-//   //  msg[1] = data[i];
-//     Serial.print(data[i]);
-//     Serial.print(" ");
-//   }
-//   Serial.println("");
+  char strdata[200];
+  //snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+  //        mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  //Serial.printf("Last Packet Recv from: %s\n", macStr);
+  //Serial.printf("Last Packet Recv Data(%d): ", data_len);
+  //for ( int i = 0 ; i < data_len ; i++ ) {
+  //  msg[1] = data[i];
+  //  Serial.print(data[i]);
+  //  Serial.print(" ");
+  //}
+  //Serial.println("");
 
-     Stick[THROTTLE] = -(float)data[4]/THROTTLE_MIN - 1;
-    if (Stick[THROTTLE] < 0) Stick[THROTTLE] = 0;
-    //Rudder
-    Stick[RUDDER] =  (data[3] - 127);//10;
-    if (Stick[RUDDER]>0) Stick[RUDDER] =  - Stick[RUDDER]/RUDDER_MAX;
-    else if (Stick[RUDDER]<0) Stick[RUDDER] = Stick[RUDDER]/RUDDER_MIN;
-    Stick[RUDDER] = -Stick[RUDDER];
-    //Elevator
-    Stick[ELEVATOR] =  (data[6] - 127);//10;
-    if (Stick[ELEVATOR]>0) Stick[ELEVATOR] =  -Stick[ELEVATOR]/ELEVATOR_MAX;
-    else if (Stick[ELEVATOR]<0) Stick[ELEVATOR] = Stick[ELEVATOR]/ELEVATOR_MIN;
-    //Aileron
-    Stick[AILERON]  =   (data[5] - 127);//10;
-    if (Stick[AILERON]>0) Stick[AILERON] = - Stick[AILERON]/AILERON_MAX;
-    else if (Stick[AILERON]<0) Stick[AILERON] = Stick[AILERON]/AILERON_MIN;
-    Stick[DPAD_UP] = (data[7]);
-    if (Stick[DPAD_UP] != 0 ) ESP.restart();
+  Stick[RUDDER] = (short)(recv_data[0]*256+recv_data[1]);
+  Stick[THROTTLE] = (short)(recv_data[2]*256+recv_data[3]);
+  Stick[AILERON]  = (short)(recv_data[4]*256+recv_data[5])/1000.0;
+  Stick[ELEVATOR] = (short)(recv_data[6]*256+recv_data[7])/1000.0;
+  Stick[BUTTON] = recv_data[10];
 
-Serial.print(Stick[THROTTLE]);
-Serial.print(",");
-Serial.print(Stick[RUDDER]);
-Serial.print(",");
-Serial.print(Stick[ELEVATOR]);
-Serial.print(",");
-Serial.println(Stick[AILERON]);
+  //Normalize
+  Stick[RUDDER] /= -RUDDER_MAX;
+  Stick[THROTTLE] /= THROTTLE_MAX;
+  Stick[AILERON] /= 90.0;
+  Stick[ELEVATOR] /= 90.0;
+  if(Stick[THROTTLE]<0.0) Stick[THROTTLE]=0.0;
 
+  #if 0
+  Stick[THROTTLE] = -(float)data[4]/THROTTLE_MIN - 1;
+  if (Stick[THROTTLE] < 0) Stick[THROTTLE] = 0;
+  //Rudder
+  Stick[RUDDER] =  (data[3] - 127);//10;
+  if (Stick[RUDDER]>0) Stick[RUDDER] =  - Stick[RUDDER]/RUDDER_MAX;
+  else if (Stick[RUDDER]<0) Stick[RUDDER] = Stick[RUDDER]/RUDDER_MIN;
+  Stick[RUDDER] = -Stick[RUDDER];
+  //Elevator
+  Stick[ELEVATOR] =  (data[6] - 127);//10;
+  if (Stick[ELEVATOR]>0) Stick[ELEVATOR] =  -Stick[ELEVATOR]/ELEVATOR_MAX;
+  else if (Stick[ELEVATOR]<0) Stick[ELEVATOR] = Stick[ELEVATOR]/ELEVATOR_MIN;
+  //Aileron
+  Stick[AILERON]  =   (data[5] - 127);//10;
+  if (Stick[AILERON]>0) Stick[AILERON] = - Stick[AILERON]/AILERON_MAX;
+  else if (Stick[AILERON]<0) Stick[AILERON] = Stick[AILERON]/AILERON_MIN;
+  Stick[DPAD_UP] = (data[7]);
+  if (Stick[DPAD_UP] != 0 ) ESP.restart();
+  #endif
+
+  //sprintf(strdata, "THR:%7.3f RUD:%7.3f AIL: %7.3f ELE: %7.3f Btn: %2d\n", 
+  //  Stick[THROTTLE], Stick[RUDDER], Stick[AILERON], Stick[ELEVATOR], (int)Stick[BUTTON]);
+  //Serial.print(strdata);
+
+  #if 0
+  Serial.print(Stick[THROTTLE]);
+  Serial.print(",");
+  Serial.print(Stick[RUDDER]);
+  Serial.print(",");
+  Serial.print(Stick[ELEVATOR]);
+  Serial.print(",");
+  Serial.println(Stick[AILERON]);
+  #endif
 }
 
 
