@@ -59,7 +59,7 @@ git clone https://github.com/kouhei1970/atomfly_kanazawa
 ![Stick map](https://github.com/kouhei1970/atomfly_kanazawa/blob/master/drone_stick_map.png)
 
 ### M5StickCplus Joystick ブランチについて
-M5StickCplus Joystickのブランチがあります。
+M5StickCplus Joystickのブランチ（cplus_controller）があります。
 masterブランチは現在はPS3コントローラ用です。
 
 
