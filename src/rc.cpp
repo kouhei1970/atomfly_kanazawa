@@ -8,6 +8,7 @@ esp_now_peer_info_t slave;
 
 int player = 0;
 int battery = 0;
+float rctime=0.0;
 
 //RC
 volatile float Stick[16];
@@ -141,6 +142,8 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len)
   char macStr[18];
   char msg[1];
   char strdata[200];
+
+
   //snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
   //        mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
   //Serial.printf("Last Packet Recv from: %s\n", macStr);
@@ -157,12 +160,13 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len)
   Stick[AILERON]  = (short)(recv_data[4]*256+recv_data[5])/1000.0;
   Stick[ELEVATOR] = (short)(recv_data[6]*256+recv_data[7])/1000.0;
   Stick[BUTTON] = recv_data[10];
+  Stick[LOG] = 0.0;
 
   //Normalize
   Stick[RUDDER] /= -RUDDER_MAX;
   Stick[THROTTLE] /= THROTTLE_MAX;
-  Stick[AILERON] /= 90.0;
-  Stick[ELEVATOR] /= 90.0;
+  Stick[AILERON] /= (0.5*3.14159);
+  Stick[ELEVATOR] /= (0.5*3.14159);
   if(Stick[THROTTLE]<0.0) Stick[THROTTLE]=0.0;
 
   #if 0
@@ -185,10 +189,12 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len)
   if (Stick[DPAD_UP] != 0 ) ESP.restart();
   #endif
 
-  //sprintf(strdata, "THR:%7.3f RUD:%7.3f AIL: %7.3f ELE: %7.3f Btn: %2d\n", 
-  //  Stick[THROTTLE], Stick[RUDDER], Stick[AILERON], Stick[ELEVATOR], (int)Stick[BUTTON]);
-  //Serial.print(strdata);
-
+//  sprintf(strdata, "THR:%7.3f RUD:%7.3f AIL: %7.3f ELE: %7.3f Btn: %2d\n", 
+//    Stick[THROTTLE], Stick[RUDDER], Stick[AILERON], Stick[ELEVATOR], (int)Stick[BUTTON]);
+  sprintf(strdata, "%7.3f %7.3f %7.3f %7.3f %7.3f %2d\n", 
+    rctime, Stick[THROTTLE], Stick[RUDDER], Stick[AILERON], Stick[ELEVATOR], (int)Stick[BUTTON]);
+  Serial.print(strdata);
+  rctime = rctime + 0.01;
   #if 0
   Serial.print(Stick[THROTTLE]);
   Serial.print(",");

@@ -342,8 +342,23 @@ void control_init(void)
   q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 7.0, 9.5, 0.005, 0.002, 0.0025);
-  theta_pid.set_parameter( 7.0, 9.5, 0.005, 0.002, 0.0025);
+  phi_pid.set_parameter  ( 6.0, 8.0, 0.005, 0.002, 0.0025);//中々良い
+  theta_pid.set_parameter( 6.0, 8.0, 0.005, 0.002, 0.0025);
+  
+  //phi_pid.set_parameter  ( 1.0, 1.0, 0.001, 0.002, 0.0025);//Roll angle control gain
+  //theta_pid.set_parameter( 1.0, 1.0, 0.001, 0.002, 0.0025);//Pitch angle control gain
+
+  //phi_pid.set_parameter  ( 6.5, 8.5, 0.005, 0.002, 0.0025);
+  //theta_pid.set_parameter( 6.5, 8.5, 0.005, 0.002, 0.0025);
+
+  //phi_pid.set_parameter  ( 6.0, 9.0, 0.005, 0.002, 0.0025);//中々良い
+  //theta_pid.set_parameter( 6.0, 9.0, 0.005, 0.002, 0.0025);
+
+  //phi_pid.set_parameter  ( 6.0, 12.0, 0.005, 0.002, 0.0025);//NG 左右にすーっと動く
+  //theta_pid.set_parameter( 6.0, 12.0, 0.005, 0.002, 0.0025);
+
+  //phi_pid.set_parameter  ( 7.0, 9.5, 0.005, 0.002, 0.0025);
+  //theta_pid.set_parameter( 7.0, 9.5, 0.005, 0.002, 0.0025);
 
   //phi_pid.set_parameter  ( 10.0, 9.5, 0.005, 0.002, 0.0025);
   //theta_pid.set_parameter( 10.0, 9.5, 0.005, 0.002, 0.0025);
@@ -401,6 +416,7 @@ void rate_control(void)
       //Aileron_center  = Stick[AILERON];
       //Elevator_center = Stick[ELEVATOR];
       Rudder_center   = Stick[RUDDER];
+      //床に置かれているときの姿勢を基準にする
       Phi_bias   = Phi;
       Theta_bias = Theta;
       Psi_bias   = Psi;      
@@ -497,9 +513,9 @@ void angle_control(void)
     Aileron_center  = Stick[AILERON];
     Elevator_center = Stick[ELEVATOR];
     
-    Phi_bias   = Phi;
-    Theta_bias = Theta;
-    Psi_bias   = Psi;
+    //Phi_bias   = Phi;
+    //Theta_bias = Theta;
+    //Psi_bias   = Psi;
     /////////////////////////////////////
   }
   else
@@ -512,12 +528,10 @@ void angle_control(void)
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);
     theta_err = Theta_ref - (Theta - Theta_bias);
-    //psi_err   = Psi_ref   - (Psi   - Psi_bias); 
-
+  
     //PID
     Pref = phi_pid.update(phi_err);
     Qref = theta_pid.update(theta_err);
-    //Rref = Psi_ref;//psi_pid.update(psi_err);//Yawは角度制御しない
   }
 
   //Logging(100Hz)
@@ -657,14 +671,14 @@ void sensor_read(void)
   
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>12.0) 
+  if (acc_norm>24.0) 
   {
     OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
   }
   Acc_norm = acc_filter.update(acc_norm);
   rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
-  if (rate_norm > 17.0)
+  if (rate_norm > 34.0)
   {
     OverG_flag = 1;
     if (Over_rate == 0.0) Over_rate =rate_norm;
@@ -680,7 +694,7 @@ void sensor_read(void)
 uint8_t lock_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( Stick[BUTTON] == 0 )
+  if( (int)Stick[BUTTON] == 0 )
   { 
     chatta++;
     if(chatta>20){
