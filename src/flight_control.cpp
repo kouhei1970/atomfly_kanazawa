@@ -398,7 +398,8 @@ void rate_control(void)
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
   //T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
-  T_ref = thlo*BATTERY_VOLTAGE;
+  //T_ref = thlo*BATTERY_VOLTAGE;
+  T_ref = (3.27*thlo -5.31*thlo*thlo + 3.04*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
   //Control main
   if(rc_isconnected())
@@ -671,7 +672,7 @@ void sensor_read(void)
   
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>24.0) 
+  if (acc_norm>14.0) 
   {
     OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
