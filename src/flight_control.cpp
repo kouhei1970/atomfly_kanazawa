@@ -342,8 +342,14 @@ void control_init(void)
   q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
   r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 6.0, 8.0, 0.005, 0.002, 0.0025);//中々良い
-  theta_pid.set_parameter( 6.0, 8.0, 0.005, 0.002, 0.0025);
+  phi_pid.set_parameter  ( 15.0, 7.0, 0.005, 0.002, 0.0025);//これも中々良い
+  theta_pid.set_parameter( 15.0, 7.0, 0.005, 0.002, 0.0025);
+
+  //phi_pid.set_parameter  ( 12.0, 8.0, 0.005, 0.002, 0.0025);//これも中々良い
+  //theta_pid.set_parameter( 12.0, 8.0, 0.005, 0.002, 0.0025);
+
+  //phi_pid.set_parameter  ( 6.0, 8.0, 0.005, 0.002, 0.0025);//中々良い
+  //theta_pid.set_parameter( 6.0, 8.0, 0.005, 0.002, 0.0025);
   
   //phi_pid.set_parameter  ( 1.0, 1.0, 0.001, 0.002, 0.0025);//Roll angle control gain
   //theta_pid.set_parameter( 1.0, 1.0, 0.001, 0.002, 0.0025);//Pitch angle control gain
