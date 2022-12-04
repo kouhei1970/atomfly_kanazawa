@@ -6,7 +6,6 @@
 //VL53L0X_ADDRESS           0x29
 //MPU6886_ADDRESS           0x69
 //BMP280_ADDRESS            0x76
-//
 
 void setup() {  
   M5.begin(true, false, true);
