@@ -687,14 +687,14 @@ void sensor_read(void)
   
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>14.0) 
+  if (acc_norm>12.0) 
   {
     OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
   }
   Acc_norm = acc_filter.update(acc_norm);
   rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
-  if (rate_norm > 34.0)
+  if (rate_norm > 17.0)
   {
     OverG_flag = 1;
     if (Over_rate == 0.0) Over_rate =rate_norm;
