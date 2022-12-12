@@ -23,7 +23,7 @@ const int ledChannel1 = 0;
 const int ledChannel2 = 5;
 const int resolution = 8;
 
-float Roll, Pitch, Yaw;  // Stores attitude related variables.
+volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
 double r_rand = 180 / PI;
 
 Adafruit_BMP280 bme;
@@ -32,7 +32,7 @@ Madgwick Drone_ahrs;
 float pressure = 0.0;
 
 //Sensor data
-float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
+volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 float Acc_norm=0.0;
 quat_t Quat;
 float Over_g=0.0, Over_rate=0.0;
@@ -49,19 +49,19 @@ uint16_t BiasCounter=0;
 uint16_t LedBlinkCounter=0;
 
 //Control 
-float FR_duty, FL_duty, RR_duty, RL_duty;
-float P_com, Q_com, R_com;
-float T_ref;
-float Pbias=0.0,Qbias=0.0,Rbias=0.0;
-float Phi_bias=0.0,Theta_bias=0.0,Psi_bias=0.0;  
-float Phi,Theta,Psi;
-float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
-float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
-float Pref=0.0,Qref=0.0,Rref=0.0;
-float Phi_trim   =  0.00;
-float Theta_trim =  0.00;
-float Psi_trim   = 0.0;
-//Phi_trim:0.016450 Theta_trim:0.000860
+volatile float FR_duty=0.0, FL_duty=0.0, RR_duty=0.0, RL_duty=0.0;
+volatile float P_com=0.0, Q_com=0.0, R_com=0.0;
+volatile float Phi_com=0.0, Tht_com=0.0, Psi_com=0.0;
+volatile float T_ref=0.0;
+volatile float Pbias=0.0,Qbias=0.0,Rbias=0.0;
+volatile float Phi_bias=0.0,Theta_bias=0.0,Psi_bias=0.0;  
+volatile float Phi=0.0,Theta=0.0,Psi=0.0;
+volatile float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
+volatile float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
+volatile float Pref=0.0,Qref=0.0,Rref=0.0;
+volatile float Phi_trim   =  0.0;
+volatile float Theta_trim =  0.0;
+volatile float Psi_trim   = 0.0;
 
 //Log
 uint16_t LogdataCounter=0;
@@ -76,10 +76,10 @@ float Logdata[LOGDATANUM];
 uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1;
-//float Rate_control_on_duty_threshold = 0.5;
 float Angle_control_on_duty_threshold = 0.5;
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
+volatile uint8_t Angle_control_flag = 0;
 CRGB Led_color = 0x000000;
 
 //PID object and etc.
@@ -99,9 +99,10 @@ void gyro_calibration(void);
 void variable_init(void);
 void log_output(void);
 void m5_atom_led(CRGB p, uint8_t state);
-void rate_control(void);
 void sensor_read(void);
+void get_command(void);
 void angle_control(void);
+void rate_control(void);
 void output_data(void);
 void output_sensor_raw_data(void);
 void logging(void);
@@ -177,9 +178,6 @@ void loop_400Hz(void)
       //Sensor Read
       M5.dis.drawpix(0, PERPLE);
       sensor_read();
-      Aileron_center  += Stick[AILERON];
-      Elevator_center += Stick[ELEVATOR];
-      Rudder_center   += Stick[RUDDER];
       Pbias += Wp;
       Qbias += Wq;
       Rbias += Wr;
@@ -192,9 +190,6 @@ void loop_400Hz(void)
     else if(BiasCounter == AVERAGENUM)
     {
       //Average calc
-      Elevator_center = Elevator_center/AVERAGENUM;
-      Aileron_center  = Aileron_center/AVERAGENUM;
-      Rudder_center   = Rudder_center/AVERAGENUM;
       Pbias = Pbias/AVERAGENUM;
       Qbias = Qbias/AVERAGENUM;
       Rbias = Rbias/AVERAGENUM;
@@ -240,6 +235,12 @@ void loop_400Hz(void)
       else led=1;
     }
    
+    //Read Sensor Value
+    sensor_read();
+
+    //Get command
+    get_command();
+
     //Angle Control
     angle_control();
 
@@ -250,6 +251,7 @@ void loop_400Hz(void)
   {
     motor_stop();
     OverG_flag = 0;
+    Angle_control_flag = 0;
     if(LedBlinkCounter<10){
       m5_atom_led(GREEN, 1);
       LedBlinkCounter++;
@@ -260,12 +262,7 @@ void loop_400Hz(void)
       LedBlinkCounter++;
     }
     else LedBlinkCounter=0;
-    
-    //Get Stick Center 
-    //Aileron_center  = Stick[AILERON];
-    //Elevator_center = Stick[ELEVATOR];
-    //Rudder_center   = Stick[RUDDER];
-  
+      
     if(LockMode==0)
     {
       if( lock_com()==1)
@@ -392,20 +389,21 @@ void control_init(void)
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
+void get_command(void)
+{
+  //Throttle curve conversion　スロットルカーブ補正
+  float thlo = Stick[THROTTLE];
+  T_ref = (3.27*thlo -5.31*thlo*thlo + 3.04*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  Phi_com = Stick[AILERON];
+  Tht_com = Stick[ELEVATOR];
+  Psi_com = Stick[RUDDER];
+}
+
 void rate_control(void)
 {
   float p_rate, q_rate, r_rate;
   float p_ref, q_ref, r_ref;
   float p_err, q_err, r_err;
-
-  //Read Sensor Value
-  sensor_read();
-
-  //Throttle curve conversion　スロットルカーブ補正
-  float thlo = Stick[THROTTLE];
-  //T_ref = (3.17*thlo*thlo*thlo -5.89*thlo*thlo + 3.72*thlo)*BATTERY_VOLTAGE;
-  //T_ref = thlo*BATTERY_VOLTAGE;
-  T_ref = (3.27*thlo -5.31*thlo*thlo + 3.04*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
   //Control main
   if(rc_isconnected())
@@ -420,18 +418,12 @@ void rate_control(void)
       Pref=0.0;
       Qref=0.0;
       Rref=0.0;
-      //Aileron_center  = Stick[AILERON];
-      //Elevator_center = Stick[ELEVATOR];
-      Rudder_center   = Stick[RUDDER];
-      //床に置かれているときの姿勢を基準にする
-      Phi_bias   = Phi;
-      Theta_bias = Theta;
-      Psi_bias   = Psi;      
+      Rudder_center   = Psi_com;
     }
     else
     {
       //Yaw control
-      Rref   = 0.8 * M_PI * (Stick[RUDDER] - Rudder_center);
+      Rref   = 0.8 * M_PI * (Psi_com - Rudder_center);
 
       //Control angle velocity
       p_rate = Wp - Pbias;
@@ -453,16 +445,12 @@ void rate_control(void)
       Q_com = q_pid.update(q_err);
       R_com = r_pid.update(r_err);
 
-      //Adjust Trim using PS3controller DPAD
-      //Phi_trim = Phi_trim + Stick[DPAD_RIGHT]*0.00001 - Stick[DPAD_LEFT]*0.00001;
-      //Theta_trim = Theta_trim - Stick[DPAD_UP]*0.00001 + Stick[DPAD_DOWN]*0.00001; 
-
       //Motor Control
       //正規化Duty
-      FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)/BATTERY_VOLTAGE;//-Phi_trim+Theta_trim;
-      FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE;//+Phi_trim+Theta_trim;
-      RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE;//-Phi_trim-Theta_trim;
-      RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE;//+Phi_trim-Theta_trim;
+      FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)/BATTERY_VOLTAGE;
+      FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE;
+      RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE;
+      RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE;
       
       const float minimum_duty=0.0;
       const float maximum_duty=0.99;
@@ -504,33 +492,38 @@ void rate_control(void)
 
 void angle_control(void)
 {
-  float phi_err,theta_err;//,psi_err;
+  float phi_err,theta_err;
   static uint8_t cnt=0;
+  static double timeval=0.0;
 
   //PID Control
-  if (T_ref/BATTERY_VOLTAGE < Angle_control_on_duty_threshold)
+  if ((T_ref/BATTERY_VOLTAGE < Angle_control_on_duty_threshold))
   {
     Pref=0.0;
     Qref=0.0;
+    phi_err = 0.0;
+    theta_err = 0.0;
     phi_pid.reset();
     theta_pid.reset();
+
     /////////////////////////////////////
     // 以下の処理で、角度制御が有効になった時に
     // 急激な目標値が発生して機体が不安定になるのを防止する
-    Aileron_center  = Stick[AILERON];
-    Elevator_center = Stick[ELEVATOR];
-    
-    //Phi_bias   = Phi;
-    //Theta_bias = Theta;
-    //Psi_bias   = Psi;
+    Aileron_center  = Phi_com;
+    Elevator_center = Tht_com;
+
+    Phi_bias   = Phi;
+    Theta_bias = Theta;
     /////////////////////////////////////
+  
   }
   else
   {
+    //Angle_control_flag = 1;
     Led_color = RED;
     //Get Roll and Pitch angle ref 
-    Phi_ref   = 0.5 * M_PI * (Stick[AILERON] - Aileron_center);//+ Phi_trim;
-    Theta_ref = 0.5 * M_PI * (Stick[ELEVATOR] -Elevator_center);//+ Theta_trim;
+    Phi_ref   = 0.5 * M_PI * (Phi_com - Aileron_center);
+    Theta_ref = 0.5 * M_PI * (Tht_com - Elevator_center);
 
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);
@@ -540,6 +533,17 @@ void angle_control(void)
     Pref = phi_pid.update(phi_err);
     Qref = theta_pid.update(theta_err);
   }
+  #if 0
+  //For debug
+  Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f\r\n", 
+    timeval, 
+    Pref, Qref, 
+    phi_err, theta_err, 
+    Aileron_center, Phi_com, 
+    Elevator_center, Tht_com);
+
+  timeval += 0.0025;
+  #endif
 
   //Logging(100Hz)
   if (cnt==0)logging();
