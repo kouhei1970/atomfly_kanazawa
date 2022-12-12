@@ -3,14 +3,14 @@
 
 PID::PID()
 {
-  m_kp=1.0e-8;
-  m_ti=1.0e8;
-  m_td=0.0;
-  m_integral=0.0;
-  m_filter_time_constant=0.01;
-  m_filter_output=0.0;
-  m_err=0.0;
-  m_h=0.01;
+  m_kp=1.0e-8f;
+  m_ti=1.0e8f;
+  m_td=0.0f;
+  m_integral=0.0f;
+  m_filter_time_constant=0.01f;
+  m_filter_output=0.0f;
+  m_err=0.0f;
+  m_h=0.01f;
 }
 
 void PID::set_parameter(
@@ -29,16 +29,16 @@ void PID::set_parameter(
 
 void PID::reset(void)
 {
-  m_integral=0.0;
-  m_filter_output=0.0;
-  m_err=0.0;
-  m_err2=0.0;
-  m_err3=0.0;
+  m_integral=0.0f;
+  m_filter_output=0.0f;
+  m_err=0.0f;
+  m_err2=0.0f;
+  m_err3=0.0f;
 }
 
 void PID::i_reset(void)
 {
-  m_integral=0.0;
+  m_integral=0.0f;
 }
 void PID::printGain(void)
 {
@@ -58,8 +58,8 @@ float PID::update(float err)
 {
   float d;
   m_integral = m_integral + m_h * err;
-  if(m_integral> 30000.0)m_integral = 30000.0;
-  if(m_integral<-30000.0)m_integral =-30000.0;
+  if(m_integral> 30000.0f)m_integral = 30000.0f;
+  if(m_integral<-30000.0f)m_integral =-30000.0f;
   m_filter_output = filter((err-m_err3)/m_h);
   m_err3 = m_err2;
   m_err2 = m_err;
@@ -69,14 +69,14 @@ float PID::update(float err)
 
 Filter::Filter()
 {
-  m_state = 0.0;
-  m_T = 0.0025;
-  m_h = 0.0025;
+  m_state = 0.0f;
+  m_T = 0.0025f;
+  m_h = 0.0025f;
 }
 
 void Filter::reset(void)
 {
-  m_state = 0.0;
+  m_state = 0.0f;
 }
 
 void Filter::set_parameter(float T, float h)

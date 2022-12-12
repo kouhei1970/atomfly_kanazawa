@@ -25,22 +25,22 @@ const int ledChannel1 = 0;
 const int ledChannel2 = 5;
 const int resolution = 8;
 
-volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
-double r_rand = 180 / PI;
+//volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
+float r_rand = 180 / PI;
 
 Adafruit_BMP280 bme;
 Madgwick Drone_ahrs;
 
-float pressure = 0.0;
+float pressure = 0.0f;
 
 //Sensor data
 volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
-float Acc_norm=0.0;
+float Acc_norm=0.0f;
 quat_t Quat;
-float Over_g=0.0, Over_rate=0.0;
+float Over_g=0.0f, Over_rate=0.0f;
 
 //Times
-float Elapsed_time=0.0;
+float Elapsed_time=0.0f;
 //
 volatile uint32_t S_time=0,E_time=0,D_time=0,S_time2=0,E_time2=0,D_time2=0;
 
@@ -51,25 +51,25 @@ uint16_t BiasCounter=0;
 uint16_t LedBlinkCounter=0;
 
 //Control 
-volatile float FR_duty=0.0, FL_duty=0.0, RR_duty=0.0, RL_duty=0.0;
-volatile float P_com=0.0, Q_com=0.0, R_com=0.0;
-volatile float Phi_com=0.0, Tht_com=0.0, Psi_com=0.0;
-volatile float T_ref=0.0;
-volatile float Pbias=0.0,Qbias=0.0,Rbias=0.0;
-volatile float Phi_bias=0.0,Theta_bias=0.0,Psi_bias=0.0;  
-volatile float Phi=0.0,Theta=0.0,Psi=0.0;
-volatile float Phi_ref=0.0,Theta_ref=0.0,Psi_ref=0.0;
-volatile float Elevator_center=0.0, Aileron_center=0.0, Rudder_center=0.0;
-volatile float Pref=0.0,Qref=0.0,Rref=0.0;
-volatile float Phi_trim   =  0.0;
-volatile float Theta_trim =  0.0;
-volatile float Psi_trim   = 0.0;
+volatile float FR_duty=0.0f, FL_duty=0.0f, RR_duty=0.0f, RL_duty=0.0f;
+volatile float P_com=0.0f, Q_com=0.0f, R_com=0.0f;
+volatile float Phi_com=0.0f, Tht_com=0.0f, Psi_com=0.0f;
+volatile float T_ref=0.0f;
+volatile float Pbias=0.0f, Qbias=0.0f, Rbias=0.0f;
+volatile float Phi_bias=0.0f, Theta_bias=0.0f, Psi_bias=0.0f;  
+volatile float Phi=0.0f, Theta=0.0f, Psi=0.0f;
+volatile float Phi_ref=0.0f, Theta_ref=0.0f, Psi_ref=0.0f;
+volatile float Elevator_center=0.0f, Aileron_center=0.0f, Rudder_center=0.0f;
+volatile float Pref=0.0f, Qref=0.0f, Rref=0.0f;
+volatile float Phi_trim   =  0.0f;
+volatile float Theta_trim =  0.0f;
+volatile float Psi_trim   =  0.0f;
 
 //Log
 uint16_t LogdataCounter=0;
 uint8_t Logflag=0;
 volatile uint8_t Logoutputflag=0;
-float Log_time=0.0;
+float Log_time=0.0f;
 const uint8_t DATANUM=28; //Log Data Number
 const uint32_t LOGDATANUM=DATANUM*700;
 float Logdata[LOGDATANUM];
@@ -77,8 +77,8 @@ float Logdata[LOGDATANUM];
 //Machine state
 uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
-float Motor_on_duty_threshold = 0.1;
-float Angle_control_on_duty_threshold = 0.5;
+float Motor_on_duty_threshold = 0.1f;
+float Angle_control_on_duty_threshold = 0.5f;
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
@@ -161,15 +161,15 @@ void loop_400Hz(void)
   if (Mode == INIT_MODE)
   {
       motor_stop();
-      Elevator_center = 0.0;
-      Aileron_center = 0.0;
-      Rudder_center = 0.0;
-      Pbias = 0.0;
-      Qbias = 0.0;
-      Rbias = 0.0;
-      Phi_bias = 0.0;
-      Theta_bias = 0.0;
-      Psi_bias = 0.0;
+      Elevator_center = 0.0f;
+      Aileron_center = 0.0f;
+      Rudder_center = 0.0f;
+      Pbias = 0.0f;
+      Qbias = 0.0f;
+      Rbias = 0.0f;
+      Phi_bias = 0.0f;
+      Theta_bias = 0.0f;
+      Psi_bias = 0.0f;
       Mode = AVERAGE_MODE;
       return;
   }
@@ -339,12 +339,12 @@ void control_init(void)
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(0.8, 0.7, 0.010, 0.002, 0.0025);//Roll rate control gain
-  q_pid.set_parameter(0.9, 0.7, 0.006, 0.002, 0.0025);//Pitch rate control gain
-  r_pid.set_parameter(3.0, 1.0, 0.000, 0.015, 0.0025);//Yaw rate control gain
+  p_pid.set_parameter(0.8f, 0.7f, 0.010f, 0.002f, 0.0025f);//Roll rate control gain
+  q_pid.set_parameter(0.9f, 0.7f, 0.006f, 0.002f, 0.0025f);//Pitch rate control gain
+  r_pid.set_parameter(3.0f, 1.0f, 0.000f, 0.015f, 0.0025f);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 15.0, 7.0, 0.005, 0.002, 0.0025);//これも中々良い
-  theta_pid.set_parameter( 15.0, 7.0, 0.005, 0.002, 0.0025);
+  phi_pid.set_parameter  ( 15.0f, 7.0f, 0.005f, 0.002f, 0.0025f);//これも中々良い
+  theta_pid.set_parameter( 15.0f, 7.0f, 0.005f, 0.002f, 0.0025f);
 
   //phi_pid.set_parameter  ( 12.0, 8.0, 0.005, 0.002, 0.0025);//これも中々良い
   //theta_pid.set_parameter( 12.0, 8.0, 0.005, 0.002, 0.0025);
@@ -397,10 +397,18 @@ void get_command(void)
 {
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
-  T_ref = (3.27*thlo -5.31*thlo*thlo + 3.04*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  if (thlo>1.0f) thlo = 1.0f;
+  if (thlo<0.0f) thlo = 0.0f;
+  T_ref = (3.27f*thlo -5.31f*thlo*thlo + 3.04f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   Phi_com = Stick[AILERON];
+  if (Phi_com<-1.0f)Phi_com = -1.0f;
+  if (Phi_com> 1.0f)Phi_com =  1.0f;  
   Tht_com = Stick[ELEVATOR];
+  if (Tht_com<-1.0f)Tht_com = -1.0f;
+  if (Tht_com> 1.0f)Tht_com =  1.0f;  
   Psi_com = Stick[RUDDER];
+  if (Psi_com<-1.0f)Psi_com = -1.0f;
+  if (Psi_com> 1.0f)Psi_com =  1.0f;  
 }
 
 void rate_control(void)
@@ -419,15 +427,15 @@ void rate_control(void)
       p_pid.reset();
       q_pid.reset();
       r_pid.reset();
-      Pref=0.0;
-      Qref=0.0;
-      Rref=0.0;
+      Pref=0.0f;
+      Qref=0.0f;
+      Rref=0.0f;
       Rudder_center   = Psi_com;
     }
     else
     {
       //Yaw control
-      Rref   = 0.8 * M_PI * (Psi_com - Rudder_center);
+      Rref   = 0.8f * M_PI * (Psi_com - Rudder_center);
 
       //Control angle velocity
       p_rate = Wp - Pbias;
@@ -451,13 +459,13 @@ void rate_control(void)
 
       //Motor Control
       //正規化Duty
-      FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25)/BATTERY_VOLTAGE;
-      FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25)/BATTERY_VOLTAGE;
-      RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25)/BATTERY_VOLTAGE;
-      RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25)/BATTERY_VOLTAGE;
+      FR_duty = (T_ref +(-P_com +Q_com -R_com)*0.25f)/BATTERY_VOLTAGE;
+      FL_duty = (T_ref +( P_com +Q_com +R_com)*0.25f)/BATTERY_VOLTAGE;
+      RR_duty = (T_ref +(-P_com -Q_com +R_com)*0.25f)/BATTERY_VOLTAGE;
+      RL_duty = (T_ref +( P_com -Q_com -R_com)*0.25f)/BATTERY_VOLTAGE;
       
-      const float minimum_duty=0.0;
-      const float maximum_duty=0.99;
+      const float minimum_duty=0.0f;
+      const float maximum_duty=0.95f;
 
       if (FR_duty < minimum_duty) FR_duty = minimum_duty;
       if (FR_duty > maximum_duty) FR_duty = maximum_duty;
@@ -498,15 +506,15 @@ void angle_control(void)
 {
   float phi_err,theta_err;
   static uint8_t cnt=0;
-  static double timeval=0.0;
+  static float timeval=0.0f;
 
   //PID Control
   if ((T_ref/BATTERY_VOLTAGE < Angle_control_on_duty_threshold))
   {
-    Pref=0.0;
-    Qref=0.0;
-    phi_err = 0.0;
-    theta_err = 0.0;
+    Pref=0.0f;
+    Qref=0.0f;
+    phi_err = 0.0f;
+    theta_err = 0.0f;
     phi_pid.reset();
     theta_pid.reset();
 
@@ -523,11 +531,15 @@ void angle_control(void)
   }
   else
   {
-    //Angle_control_flag = 1;
     Led_color = RED;
+
     //Get Roll and Pitch angle ref 
-    Phi_ref   = 0.5 * M_PI * (Phi_com - Aileron_center);
-    Theta_ref = 0.5 * M_PI * (Tht_com - Elevator_center);
+    Phi_ref   = 0.5f * M_PI * (Phi_com - Aileron_center);
+    Theta_ref = 0.5f * M_PI * (Tht_com - Elevator_center);
+    if (Phi_ref > (30.0f*M_PI/180.0f) ) Phi_ref = 30.0f*M_PI/180.0f;
+    if (Phi_ref <-(30.0f*M_PI/180.0f) ) Phi_ref =-30.0f*M_PI/180.0f;
+    if (Theta_ref > (30.0f*M_PI/180.0f) ) Theta_ref = 30.0f*M_PI/180.0f;
+    if (Theta_ref <-(30.0f*M_PI/180.0f) ) Theta_ref =-30.0f*M_PI/180.0f;
 
     //Error
     phi_err   = Phi_ref   - (Phi   - Phi_bias);
@@ -675,18 +687,18 @@ void sensor_read(void)
   M5.IMU.getGyroData(&gx, &gy, &gz);
   ax = ax;
   ay = ay;
-  Drone_ahrs.updateIMU(gx-Qbias*RAD_TO_DEG, gy-Pbias*RAD_TO_DEG, gz-Rbias*RAD_TO_DEG, ax, ay, az);
+  Drone_ahrs.updateIMU(gx-Qbias*(float)RAD_TO_DEG, gy-Pbias*(float)RAD_TO_DEG, gz-Rbias*(float)RAD_TO_DEG, ax, ay, az);
 
   Ax = ay;
   Ay = ax;
   Az = az;
-  Wp = gy*DEG_TO_RAD;
-  Wq = gx*DEG_TO_RAD;
-  Wr = gz*DEG_TO_RAD;
+  Wp = gy*(float)DEG_TO_RAD;
+  Wq = gx*(float)DEG_TO_RAD;
+  Wr = gz*(float)DEG_TO_RAD;
 
-  Theta = Drone_ahrs.getRoll()*DEG_TO_RAD;
-  Phi =   Drone_ahrs.getPitch()*DEG_TO_RAD;
-  Psi =   Drone_ahrs.getYaw()*DEG_TO_RAD;
+  Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD;
+  Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD;
+  Psi =   Drone_ahrs.getYaw()*(float)DEG_TO_RAD;
   
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
