@@ -1,13 +1,15 @@
 #include <Arduino.h>
 #include <M5Atom.h>
-#include "vl53l0x.h"
-#include "Adafruit_Sensor.h"
+#include <INA3221.h>
 #include <Adafruit_BMP280.h>
 #include <math.h>
 #include <MadgwickAHRS.h>
+#include "vl53l0x.h"
+#include "Adafruit_Sensor.h"
 #include "rc.hpp"
 #include "flight_control.hpp"
 #include "pid.hpp"
+
 
 const int pwmFL = 22;
 const int pwmFR = 19;
@@ -121,6 +123,7 @@ void IRAM_ATTR onTimer() {
 
 void init_atomfly(void)
 {
+
   Mode = INIT_MODE;
   M5.dis.drawpix(0, WHITE);
   init_pwm();
