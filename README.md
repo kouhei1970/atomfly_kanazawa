@@ -54,6 +54,6 @@ git clone https://github.com/kouhei1970/atomfly_kanazawa
 1. vscode（PltformIO）を開いて、atomfly_kanazawaプロジェクトを開く
 2. 下部のCheck markのアイコンをクロックしてビルドを実行
 
-### 操縦コントローラのスティック割り当て
+### 操縦コントローラ
 
 ![Stick map](https://github.com/kouhei1970/atomfly_kanazawa/blob/master/drone_stick_map.png)
