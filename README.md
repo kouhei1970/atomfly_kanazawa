@@ -56,4 +56,6 @@ git clone https://github.com/kouhei1970/atomfly_kanazawa
 
 ### 操縦コントローラ
 
+[Controller code](https://github.com/kouhei1970/m5stick_joystick)
+
 ![Stick map](https://github.com/kouhei1970/atomfly_kanazawa/blob/cplus_controller/new_controller.png)
