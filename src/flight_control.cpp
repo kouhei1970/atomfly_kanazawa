@@ -9,7 +9,6 @@
 #include "flight_control.hpp"
 #include "pid.hpp"
 
-
 const int pwmFL = 22;
 const int pwmFR = 19;
 const int pwmRL = 23;
