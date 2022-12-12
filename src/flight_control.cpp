@@ -128,14 +128,15 @@ void init_atomfly(void)
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
   rc_init();
-  while(!rc_isconnected());
+  //while(!rc_isconnected());
   M5.IMU.Init();
+  //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
   Wire.begin(25,21,400000UL);
-  Serial.println("VLX53LOX test started.");
-  Serial.println(F("BMP280 test started...\n"));
   test_rangefinder();
   Drone_ahrs.begin(400.0);
   control_init();
+  
+  //割り込み設定
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 2500, true);
@@ -560,7 +561,8 @@ void m5_atom_led(CRGB p, uint8_t state)
 
 void init_i2c()
 {
-  Wire.begin(25,21);          // join i2c bus (address optional for master)
+  //Wire.begin(25,21);          // join i2c bus (address optional for master)
+  Wire.begin(25,21,400000UL);
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
   for (short i = 0; i < 256; i++)
@@ -595,6 +597,9 @@ void init_pwm(void)
 
 void test_rangefinder(void)
 {
+  Serial.println("VLX53LOX test started.");
+  //Serial.println(F("BMP280 test started...\n"));
+
   //Begin Range finder Test
   //Serial.println(read_byte_data_at(VL53L0X_REG_IDENTIFICATION_MODEL_ID));
   write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
