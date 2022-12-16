@@ -28,8 +28,11 @@ const int resolution = 8;
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
 float r_rand = 180 / PI;
 
-Adafruit_BMP280 bme;
+//Adafruit_BMP280 bme;
 Madgwick Drone_ahrs;
+
+// Set I2C address to 0x41 (A0 pin -> VCC)
+INA3221 ina3221(INA3221_ADDR40_GND);
 
 float pressure = 0.0f;
 
@@ -75,6 +78,7 @@ const uint32_t LOGDATANUM=DATANUM*700;
 float Logdata[LOGDATANUM];
 
 //Machine state
+float Timevalue=0.0f;
 uint8_t Mode = INIT_MODE;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1f;
@@ -82,6 +86,7 @@ float Angle_control_on_duty_threshold = 0.5f;
 uint8_t OverG_flag = 0;
 volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
+volatile uint8_t Power_flag = 0;
 CRGB Led_color = 0x000000;
 
 //PID object and etc.
@@ -127,16 +132,18 @@ void init_atomfly(void)
   Mode = INIT_MODE;
   M5.dis.drawpix(0, WHITE);
   init_pwm();
-  init_i2c();
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
+  init_i2c();
   rc_init();
   //while(!rc_isconnected());
   M5.IMU.Init();
   //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
   Wire.begin(25,21,400000UL);
-  test_rangefinder();
+  //test_rangefinder();
   Drone_ahrs.begin(400.0);
+  ina3221.begin();
+  ina3221.reset();  
   control_init();
   
   //割り込み設定
@@ -156,6 +163,7 @@ void loop_400Hz(void)
 
   while(Loop_flag==0);
   Loop_flag = 0;
+  Timevalue+=0.0025f;
 
   //Begin Mode select
   if (Mode == INIT_MODE)
@@ -214,7 +222,8 @@ void loop_400Hz(void)
       {
         LockMode=3;//Disenable Flight
         led=0;
-        m5_atom_led(GREEN,led);
+        if(Power_flag==0)m5_atom_led(GREEN,led);
+        else m5_atom_led(POWEROFFCOLOR,led);
         return;
       }
       //Goto Flight
@@ -228,7 +237,8 @@ void loop_400Hz(void)
       return;
     }
     //LED Blink
-    m5_atom_led(Led_color, led);
+    if (Power_flag == 0) m5_atom_led(Led_color, led);
+    else m5_atom_led(POWEROFFCOLOR,led);
     if(Logflag==1&&LedBlinkCounter<100){
       LedBlinkCounter++;
     }
@@ -257,12 +267,14 @@ void loop_400Hz(void)
     OverG_flag = 0;
     Angle_control_flag = 0;
     if(LedBlinkCounter<10){
-      m5_atom_led(GREEN, 1);
+      if (Power_flag == 0) m5_atom_led(GREEN, 1);
+      else m5_atom_led(POWEROFFCOLOR,1);
       LedBlinkCounter++;
     }
     else if(LedBlinkCounter<100)
     {
-      m5_atom_led(GREEN, 0);
+      if (Power_flag == 0) m5_atom_led(GREEN, 0);
+      else m5_atom_led(POWEROFFCOLOR,0);
       LedBlinkCounter++;
     }
     else LedBlinkCounter=0;
@@ -682,6 +694,7 @@ void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 void sensor_read(void)
 {
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
+  float v1,v2,v3;
 
   M5.IMU.getAccelData(&ax, &ay, &az);
   M5.IMU.getGyroData(&gx, &gy, &gz);
@@ -715,7 +728,20 @@ void sensor_read(void)
     if (Over_rate == 0.0) Over_rate =rate_norm;
   } 
   #endif
+  uint16_t inaid;
+  //Wire.endTransmission();
+  //inaid=ina3221.getManufID();
+  //Wire.endTransmission();
+  //v1 = ina3221.getVoltage(INA3221_CH1);
+  v2 = ina3221.getVoltage(INA3221_CH2);
+  //v3 = ina3221.getVoltage(INA3221_CH3);
+  if(Power_flag != POWER_FLG_MAX){
+    if (v2 < POWER_LIMIT) Power_flag ++;
+    else Power_flag = 0;
+    if ( Power_flag > POWER_FLG_MAX) Power_flag = POWER_FLG_MAX;
+  }
 
+  //Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f \r\n", Timevalue, v1, v2, v3, Phi, Theta, Psi);
 #if 0
   Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
    Elapsed_time, D_time, Ax, Ay, Az, Wp, Wq, Wr, Phi, Theta, Psi);

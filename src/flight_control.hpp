@@ -7,6 +7,7 @@
 #define RED 0xff0000
 #define GREEN 0x00ff00
 #define PERPLE 0xff00ff
+#define POWEROFFCOLOR 0x18EBF9
 
 #define AVERAGENUM 800
 
@@ -15,6 +16,9 @@
 #define FLIGHT_MODE 2
 #define STAY_MODE 3
 #define LOG_MODE 4
+
+#define POWER_LIMIT 3.3
+#define POWER_FLG_MAX 20
 
 typedef struct
 {
