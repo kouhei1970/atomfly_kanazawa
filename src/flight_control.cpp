@@ -38,12 +38,15 @@ float pressure = 0.0f;
 
 //Sensor data
 volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
+volatile float Voltage;
 float Acc_norm=0.0f;
 quat_t Quat;
 float Over_g=0.0f, Over_rate=0.0f;
 
 //Times
-float Elapsed_time=0.0f;
+volatile float Elapsed_time=0.0f;
+volatile float Old_Elapsed_time=0.0f;
+
 //
 volatile uint32_t S_time=0,E_time=0,D_time=0,S_time2=0,E_time2=0,D_time2=0;
 
@@ -69,21 +72,26 @@ volatile float Theta_trim =  0.0f;
 volatile float Psi_trim   =  0.0f;
 
 //Log
-uint16_t LogdataCounter=0;
+//uint16_t LogdataCounter=0;
 uint8_t Logflag=0;
-volatile uint8_t Logoutputflag=0;
-float Log_time=0.0f;
-const uint8_t DATANUM=28; //Log Data Number
-const uint32_t LOGDATANUM=DATANUM*700;
-float Logdata[LOGDATANUM];
+//volatile uint8_t Logoutputflag=0;
+//float Log_time=0.0f;
+//const uint8_t DATANUM=28; //Log Data Number
+//const uint32_t LOGDATANUM=DATANUM*700;
+//float Logdata[LOGDATANUM];
+uint8_t Telem_cnt = 0;
 
 //Machine state
 float Timevalue=0.0f;
 uint8_t Mode = INIT_MODE;
+uint8_t Control_mode = ANGLECONTROL;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1f;
 float Angle_control_on_duty_threshold = 0.5f;
 uint8_t OverG_flag = 0;
+uint8_t Flip_flag = 0;
+uint16_t Flip_counter = 0; 
+float Flip_time = 2.0;
 volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
 volatile uint8_t Power_flag = 0;
@@ -97,14 +105,14 @@ PID phi_pid;
 PID theta_pid;
 PID psi_pid;
 Filter acc_filter;
+Filter voltage_filter;
 
 void test_rangefinder(void);
-void init_i2c();
+uint8_t init_i2c();
 void init_pwm();
 void control_init();
 void gyro_calibration(void);
 void variable_init(void);
-void log_output(void);
 void m5_atom_led(CRGB p, uint8_t state);
 void sensor_read(void);
 void get_command(void);
@@ -112,14 +120,19 @@ void angle_control(void);
 void rate_control(void);
 void output_data(void);
 void output_sensor_raw_data(void);
-void logging(void);
 void motor_stop(void);
 uint8_t lock_com(void);
-uint8_t logdata_out_com(void);
 void set_duty_fr(float duty);
 void set_duty_fl(float duty);
 void set_duty_rr(float duty);
 void set_duty_rl(float duty);
+
+void telemetry(void);
+void float2byte(float x, uint8_t* dst);
+void append_data(uint8_t* data , uint8_t* newdata, uint8_t index, uint8_t len);
+void imu_init(void);
+uint8_t mpu6886_byte_read(uint8_t reg_addr);
+void mpu6886_byte_write(uint8_t reg_addr, uint8_t data);
 
 hw_timer_t * timer = NULL;
 void IRAM_ATTR onTimer() {
@@ -134,18 +147,25 @@ void init_atomfly(void)
   init_pwm();
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
-  init_i2c();
   rc_init();
+  if(init_i2c()==0)
+  {
+    Serial.printf("No I2C device!\r\n");
+    Serial.printf("Can not boot AtomFly2.\r\n");
+    while(1);
+  }
   //while(!rc_isconnected());
-  M5.IMU.Init();
-  //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
-  Wire.begin(25,21,400000UL);
+  
+  imu_init();
+  
   //test_rangefinder();
   Drone_ahrs.begin(400.0);
   ina3221.begin();
   ina3221.reset();  
   control_init();
-  
+  voltage_filter.set_parameter(0.005, 0.0025);
+
+
   //割り込み設定
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
@@ -156,14 +176,90 @@ void init_atomfly(void)
   //Mode = AVERAGE_MODE;
 }
 
+uint8_t mpu6886_byte_read(uint8_t reg_addr)
+{
+  uint8_t data;
+  Wire.beginTransmission (MPU6886_ADDRESS);
+  Wire.write(reg_addr);
+  Wire.endTransmission();
+  Wire.requestFrom(MPU6886_ADDRESS, 1);
+  data = Wire.read();
+  return data;
+}
+
+void mpu6886_byte_write(uint8_t reg_addr, uint8_t data)
+{
+  Wire.beginTransmission (MPU6886_ADDRESS);
+  Wire.write(reg_addr);
+  Wire.write(data);
+  Wire.endTransmission();
+}
+
+
+void imu_init(void)
+{
+  uint8_t data;
+  const uint8_t filter_config = 2;
+  //Cutoff frequency
+  //filter_config Gyro Accel
+  //0 250    218.1 log140 割と触れは小さい
+  //1 176    218.1 log141 大きい角度で触れるが飛びはない
+  //2 92     99.0  log142 突然角度推定値が飛ぶ
+  //3 41     44.8  log143 わかりずらいがロールに飛びがある
+  //4 20     21.2
+  //5 10     10.2
+  //6 5      5.1
+  //7 3281   420.0
+
+  //Mdgwick filter 実験
+  // filter_config=0において実施
+  //beta =0 後半角度増大
+  //beta=0.5
+
+  M5.IMU.Init();
+  //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
+  Wire.begin(25,21,400000UL);
+
+ //F_CHOICE_B
+  data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
+  Serial.printf("GYRO_CONFIG %d\r\n", data);
+  mpu6886_byte_write(MPU6886_GYRO_CONFIG, data & 0b11111100);
+  data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
+  Serial.printf("Update GYRO_CONFIG %d\r\n", data);
+
+  //Gyro
+  //DLPG_CFG
+  data = mpu6886_byte_read(MPU6886_CONFIG);
+  Serial.printf("CONFIG %d\r\n", data);
+  mpu6886_byte_write(MPU6886_CONFIG, (data&0b11111100)|filter_config);
+  data = mpu6886_byte_read(MPU6886_CONFIG);
+  Serial.printf("Update CONFIG %d\r\n", data);
+
+  //Accel
+  //ACCEL_FCHOCE_B & A_DLPF_CFG
+  data = mpu6886_byte_read(MPU6886_ACCEL_CONFIG2);
+  Serial.printf("ACCEL_CONFIG2 %d\r\n", data);
+  mpu6886_byte_write(MPU6886_ACCEL_CONFIG2, (data & 0b11110111) | filter_config);
+  data = mpu6886_byte_read(MPU6886_ACCEL_CONFIG2);
+  Serial.printf("Update ACCEL_CONFIG2 %d\r\n", data);
+
+}
+
 //Main loop
 void loop_400Hz(void)
 {
   static uint8_t led=1;
 
   while(Loop_flag==0);
+  E_time = micros();
+  Old_Elapsed_time = Elapsed_time;
+  Elapsed_time = 1e-6*(E_time - S_time);
   Loop_flag = 0;
   Timevalue+=0.0025f;
+
+  //Read Sensor Value
+  sensor_read();
+
 
   //Begin Mode select
   if (Mode == INIT_MODE)
@@ -189,13 +285,10 @@ void loop_400Hz(void)
     {
       //Sensor Read
       M5.dis.drawpix(0, PERPLE);
-      sensor_read();
+      //sensor_read();
       Pbias += Wp;
       Qbias += Wq;
       Rbias += Wr;
-      Phi_bias   += Phi;
-      Theta_bias += Theta;
-      Psi_bias   += Psi;
       BiasCounter++;
       return;
     }
@@ -205,12 +298,10 @@ void loop_400Hz(void)
       Pbias = Pbias/AVERAGENUM;
       Qbias = Qbias/AVERAGENUM;
       Rbias = Rbias/AVERAGENUM;
-      Phi_bias   = Phi_bias/AVERAGENUM;
-      Theta_bias = Theta_bias/AVERAGENUM;
-      Psi_bias   = Psi_bias/AVERAGENUM;
 
       //Mode change
       Mode = STAY_MODE;
+      S_time = micros();
     }
     return;
   }
@@ -224,6 +315,7 @@ void loop_400Hz(void)
         led=0;
         if(Power_flag==0)m5_atom_led(GREEN,led);
         else m5_atom_led(POWEROFFCOLOR,led);
+        //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
         return;
       }
       //Goto Flight
@@ -239,6 +331,7 @@ void loop_400Hz(void)
     //LED Blink
     if (Power_flag == 0) m5_atom_led(Led_color, led);
     else m5_atom_led(POWEROFFCOLOR,led);
+    //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
     if(Logflag==1&&LedBlinkCounter<100){
       LedBlinkCounter++;
     }
@@ -249,9 +342,6 @@ void loop_400Hz(void)
       else led=1;
     }
    
-    //Read Sensor Value
-    sensor_read();
-
     //Get command
     get_command();
 
@@ -260,6 +350,7 @@ void loop_400Hz(void)
 
     //Rate Control
     rate_control();
+    D_time = micros();
   }
   else if(Mode == STAY_MODE)
   {
@@ -297,29 +388,13 @@ void loop_400Hz(void)
       }
       return;
     }
+  }
 
-    if(logdata_out_com()==1)
-    {
-      Mode=LOG_MODE;
-      return;
-    }
-  }
-  else if(Mode == LOG_MODE)
-  {
-    motor_stop();
-    Logoutputflag=1;
-    log_output();
-    //LED Blink
-    m5_atom_led(BLUE, led);
-    if(LedBlinkCounter<10){
-      LedBlinkCounter++;
-    }
-    else
-    {
-      LedBlinkCounter=0;
-      led=!led;
-    }
-  }
+  //Telemetry
+  if (Telem_cnt == 0)telemetry();
+  Telem_cnt++;
+  if (Telem_cnt>10)Telem_cnt = 0;
+
   //End Mode select
   //End of Loop_400Hz function
 }
@@ -351,12 +426,46 @@ void control_init(void)
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(0.8f, 0.7f, 0.010f, 0.002f, 0.0025f);//Roll rate control gain
-  q_pid.set_parameter(0.9f, 0.7f, 0.006f, 0.002f, 0.0025f);//Pitch rate control gain
-  r_pid.set_parameter(3.0f, 1.0f, 0.000f, 0.015f, 0.0025f);//Yaw rate control gain
+  p_pid.set_parameter(1.0f, 1.00f, 0.03f, 0.125f, 0.0025f);//Roll rate control gain
+  q_pid.set_parameter(1.0f, 1.00f, 0.03f, 0.125f, 0.0025f);//Pitch rate control gain
+  r_pid.set_parameter(3.0f, 5.0f, 0.00f, 0.125f, 0.0025f);//Yaw rate control gain
   //Angle control
-  phi_pid.set_parameter  ( 15.0f, 7.0f, 0.005f, 0.002f, 0.0025f);//これも中々良い
-  theta_pid.set_parameter( 15.0f, 7.0f, 0.005f, 0.002f, 0.0025f);
+  phi_pid.set_parameter  ( 20.0f, 2.8f, 0.04f, 0.125f, 0.0025f);
+  theta_pid.set_parameter( 20.0f, 2.8f, 0.04f, 0.125f, 0.0025f);
+
+  //Rate control
+  //p_pid.set_parameter(0.6f, 1.1f, 0.00005f, 1.0f, 0.0025f);//Roll rate control gain
+  //q_pid.set_parameter(0.8f, 1.3f, 0.00002f, 1.0f, 0.0025f);//Pitch rate control gain
+  //r_pid.set_parameter(3.0f, 1.0f, 0.00f, 1.0f, 0.0025f);//Yaw rate control gain
+  //Angle control
+  //phi_pid.set_parameter  ( 0.0f, 0.28f, 0.00000f, 30.0f, 0.0025f);
+  //theta_pid.set_parameter( 0.0f, 0.28f, 0.00000f, 30.0f, 0.0025f);
+
+
+
+  //phi_pid.set_parameter  ( 1.1f, 0.28f, 0.00000f, 30.0f, 0.0025f);
+  //theta_pid.set_parameter( 1.1f, 0.28f, 0.00000f, 30.0f, 0.0025f);
+
+  //phi_pid.set_parameter  ( 1.0f, 0.1f, 0.005f, 0.002f, 0.0025f);
+  //theta_pid.set_parameter( 1.0f, 0.1f, 0.005f, 0.002f, 0.0025f);
+
+
+  //p_pid.set_parameter(0.8f, 0.7f, 0.010f, 0.002f, 0.0025f);//Roll rate control gain
+  //q_pid.set_parameter(0.9f, 0.7f, 0.006f, 0.002f, 0.0025f);//Pitch rate control gain
+  //r_pid.set_parameter(3.0f, 1.0f, 0.000f, 0.015f, 0.0025f);//Yaw rate control gain
+
+
+  //phi_pid.set_parameter  ( 8.0f, 8.0f, 0.005f, 0.002f, 0.0025f);
+  //theta_pid.set_parameter( 8.0f, 8.0f, 0.005f, 0.002f, 0.0025f);
+
+
+  //phi_pid.set_parameter  ( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);//振動
+  //theta_pid.set_parameter( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);
+
+  //p_pid.set_parameter(0.8f, 0.7f, 0.010f, 0.002f, 0.0025f);//Roll rate control gain
+  //q_pid.set_parameter(0.9f, 0.7f, 0.006f, 0.002f, 0.0025f);//Pitch rate control gain
+  //r_pid.set_parameter(3.0f, 1.0f, 0.000f, 0.015f, 0.0025f);//Yaw rate control gain
+
 
   //phi_pid.set_parameter  ( 12.0, 8.0, 0.005, 0.002, 0.0025);//これも中々良い
   //theta_pid.set_parameter( 12.0, 8.0, 0.005, 0.002, 0.0025);
@@ -407,20 +516,31 @@ void control_init(void)
 
 void get_command(void)
 {
+  Control_mode = Stick[CONTROLMODE];
+
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
   if (thlo>1.0f) thlo = 1.0f;
   if (thlo<0.0f) thlo = 0.0f;
   T_ref = (3.27f*thlo -5.31f*thlo*thlo + 3.04f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
-  Phi_com = Stick[AILERON];
+
+  Phi_com = 0.5*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
   if (Phi_com> 1.0f)Phi_com =  1.0f;  
-  Tht_com = Stick[ELEVATOR];
+  Tht_com = 0.5*Stick[ELEVATOR];
   if (Tht_com<-1.0f)Tht_com = -1.0f;
   if (Tht_com> 1.0f)Tht_com =  1.0f;  
   Psi_com = Stick[RUDDER];
   if (Psi_com<-1.0f)Psi_com = -1.0f;
   if (Psi_com> 1.0f)Psi_com =  1.0f;  
+  //Yaw control
+  Rref   = 0.8f * M_PI * (Psi_com - Rudder_center);
+
+  if (Control_mode == RATECONTROL)
+  {
+    Pref = 240*PI/180*Phi_com;
+    Qref = 240*PI/180*Tht_com;
+  }
 }
 
 void rate_control(void)
@@ -434,7 +554,8 @@ void rate_control(void)
   {
     if(T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold)
     {
-      Led_color=0xffff00;
+      if(Control_mode == ANGLECONTROL)Led_color=0xffff00;
+      else Led_color = 0xDC669B;
       motor_stop();
       p_pid.reset();
       q_pid.reset();
@@ -446,8 +567,6 @@ void rate_control(void)
     }
     else
     {
-      //Yaw control
-      Rref   = 0.8f * M_PI * (Psi_com - Rudder_center);
 
       //Control angle velocity
       p_rate = Wp - Pbias;
@@ -520,8 +639,10 @@ void angle_control(void)
   static uint8_t cnt=0;
   static float timeval=0.0f;
 
+  if (Control_mode == RATECONTROL) return;
+
   //PID Control
-  if ((T_ref/BATTERY_VOLTAGE < Angle_control_on_duty_threshold))
+  if ((T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold))//Angle_control_on_duty_threshold))
   {
     Pref=0.0f;
     Qref=0.0f;
@@ -529,7 +650,8 @@ void angle_control(void)
     theta_err = 0.0f;
     phi_pid.reset();
     theta_pid.reset();
-
+    phi_pid.set_error(Phi_ref);
+    theta_pid.set_error(Theta_ref);
     /////////////////////////////////////
     // 以下の処理で、角度制御が有効になった時に
     // 急激な目標値が発生して機体が不安定になるのを防止する
@@ -544,22 +666,58 @@ void angle_control(void)
   else
   {
     Led_color = RED;
+    
+    //Flip
+    if ( (Stick[BUTTON_A] == 1) || (Flip_flag ==1) )
+    {
+      if (Flip_flag == 0)Flip_flag = 1;
+      if (Flip_counter >400)
+      {
+        Flip_flag = 0;
+        Flip_counter = 0;
+      }
+      Pref = 2.0*PI;
+      Qref = 0.0;
+      Flip_counter++;
 
-    //Get Roll and Pitch angle ref 
-    Phi_ref   = 0.5f * M_PI * (Phi_com - Aileron_center);
-    Theta_ref = 0.5f * M_PI * (Tht_com - Elevator_center);
-    if (Phi_ref > (30.0f*M_PI/180.0f) ) Phi_ref = 30.0f*M_PI/180.0f;
-    if (Phi_ref <-(30.0f*M_PI/180.0f) ) Phi_ref =-30.0f*M_PI/180.0f;
-    if (Theta_ref > (30.0f*M_PI/180.0f) ) Theta_ref = 30.0f*M_PI/180.0f;
-    if (Theta_ref <-(30.0f*M_PI/180.0f) ) Theta_ref =-30.0f*M_PI/180.0f;
+      #if 0
+      Flip_flag = 1;
 
-    //Error
-    phi_err   = Phi_ref   - (Phi   - Phi_bias);
-    theta_err = Theta_ref - (Theta - Theta_bias);
-  
-    //PID
-    Pref = phi_pid.update(phi_err);
-    Qref = theta_pid.update(theta_err);
+      //PID Reset
+      phi_pid.reset();
+      theta_pid.reset();
+    
+      Flip_time = 2.0;
+      Pref = 2.0*PI/Flip_time;
+      Qref = 0.0;
+      if (Flip_counter> (Flip_time/0.0025) )
+      {
+        Flip_flag = 0;
+        Flip_counter = 0;
+      }
+      Flip_counter++;
+      #endif
+    }
+    //Angle Control
+    else
+    {
+      //Get Roll and Pitch angle ref 
+      Phi_ref   = 0.5f * M_PI * (Phi_com - Aileron_center);
+      Theta_ref = 0.5f * M_PI * (Tht_com - Elevator_center);
+      if (Phi_ref > (30.0f*M_PI/180.0f) ) Phi_ref = 30.0f*M_PI/180.0f;
+      if (Phi_ref <-(30.0f*M_PI/180.0f) ) Phi_ref =-30.0f*M_PI/180.0f;
+      if (Theta_ref > (30.0f*M_PI/180.0f) ) Theta_ref = 30.0f*M_PI/180.0f;
+      if (Theta_ref <-(30.0f*M_PI/180.0f) ) Theta_ref =-30.0f*M_PI/180.0f;
+
+      //Error
+      phi_err   = Phi_ref   - (Phi   - Phi_bias);
+      theta_err = Theta_ref - (Theta - Theta_bias);
+    
+      //PID
+      Pref = phi_pid.update(phi_err);
+      Qref = theta_pid.update(theta_err);
+    }
+    
   }
   #if 0
   //For debug
@@ -573,10 +731,6 @@ void angle_control(void)
   timeval += 0.0025;
   #endif
 
-  //Logging(100Hz)
-  if (cnt==0)logging();
-  cnt++;
-  if(cnt==4 )cnt=0;
 }
 
 void m5_atom_led(CRGB p, uint8_t state)
@@ -586,7 +740,7 @@ void m5_atom_led(CRGB p, uint8_t state)
   return;
 }
 
-void init_i2c()
+uint8_t init_i2c()
 {
   //Wire.begin(25,21);          // join i2c bus (address optional for master)
   Wire.begin(25,21,400000UL);
@@ -608,6 +762,7 @@ void init_i2c()
   Serial.print ("Found ");      
   Serial.print (count, DEC);        // numbers of devices
   Serial.println (" device(s).");
+  return count;
 }
 
 void init_pwm(void)
@@ -694,13 +849,20 @@ void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 void sensor_read(void)
 {
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
-  float v1,v2,v3;
+  float filterd_v;
 
   M5.IMU.getAccelData(&ax, &ay, &az);
   M5.IMU.getGyroData(&gx, &gy, &gz);
-  ax = ax;
-  ay = ay;
-  Drone_ahrs.updateIMU(gx-Qbias*(float)RAD_TO_DEG, gy-Pbias*(float)RAD_TO_DEG, gz-Rbias*(float)RAD_TO_DEG, ax, ay, az);
+  //ax = ax;
+  //ay = ay;
+  if(Mode > AVERAGE_MODE)
+  {
+    Drone_ahrs.updateIMU(gx-Qbias*(float)RAD_TO_DEG, gy-Pbias*(float)RAD_TO_DEG, gz-Rbias*(float)RAD_TO_DEG, ax, ay, az);
+    //Drone_ahrs.updateIMU(gx, gy, gz, ax, ay, az);
+    Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD;
+    Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD;
+    Psi =   Drone_ahrs.getYaw()*(float)DEG_TO_RAD;
+  }
 
   Ax = ay;
   Ay = ax;
@@ -709,43 +871,171 @@ void sensor_read(void)
   Wq = gx*(float)DEG_TO_RAD;
   Wr = gz*(float)DEG_TO_RAD;
 
-  Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD;
-  Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD;
-  Psi =   Drone_ahrs.getYaw()*(float)DEG_TO_RAD;
-  
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  if (acc_norm>12.0) 
+  Acc_norm = acc_filter.update(acc_norm);
+  if (Acc_norm>10.0) 
   {
-    OverG_flag = 1;
+    OverG_flag = 0;
     if (Over_g == 0.0)Over_g = acc_norm;
   }
-  Acc_norm = acc_filter.update(acc_norm);
+  
   rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
-  if (rate_norm > 17.0)
+  if (rate_norm > 800.0)
   {
-    OverG_flag = 1;
+    OverG_flag = 0;
     if (Over_rate == 0.0) Over_rate =rate_norm;
   } 
   #endif
-  uint16_t inaid;
-  //Wire.endTransmission();
-  //inaid=ina3221.getManufID();
-  //Wire.endTransmission();
-  //v1 = ina3221.getVoltage(INA3221_CH1);
-  v2 = ina3221.getVoltage(INA3221_CH2);
-  //v3 = ina3221.getVoltage(INA3221_CH3);
+
+  Voltage = ina3221.getVoltage(INA3221_CH2);
+  filterd_v = voltage_filter.update(Voltage);
+
   if(Power_flag != POWER_FLG_MAX){
-    if (v2 < POWER_LIMIT) Power_flag ++;
+    if (filterd_v < POWER_LIMIT) Power_flag ++;
     else Power_flag = 0;
     if ( Power_flag > POWER_FLG_MAX) Power_flag = POWER_FLG_MAX;
   }
 
-  //Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f \r\n", Timevalue, v1, v2, v3, Phi, Theta, Psi);
-#if 0
-  Serial.printf("%7.3f  %6d %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\r\n",
-   Elapsed_time, D_time, Ax, Ay, Az, Wp, Wq, Wr, Phi, Theta, Psi);
-#endif
+
+  #if 0
+  if(Stick[BUTTON_A]==1)
+  Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f \r\n", 
+    Elapsed_time, Elapsed_time - Old_Elapsed_time ,v1, v2, v3, 
+    (Phi-Phi_bias)*180/PI, (Theta-Theta_bias)*180/PI, (Psi-Psi_bias)*180/PI);
+  #endif
+}
+
+void telemetry(void)
+{
+  //Telemetry
+  float d_float;
+  uint8_t d_int[4];
+  uint8_t senddata[80]; 
+  uint8_t index=0;  
+
+  if(Mode > AVERAGE_MODE)
+  {
+    //1 Time
+    d_float = Elapsed_time;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //2 delta Time
+    d_float = 1e-6*(D_time - E_time);
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //3 Phi
+    d_float = (Phi-Phi_bias)*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //4 Theta
+    d_float = (Theta-Theta_bias)*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //5 Psi
+    d_float = (Psi-Psi_bias)*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //6 P
+    d_float = (Wp-Pbias)*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //7 Q
+    d_float = (Wq-Qbias)*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //8 R
+    d_float = (Wr-Rbias)*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //9 Phi_ref
+    d_float = Phi_ref*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //10 Theta_ref
+    d_float = Theta_ref*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //11 P ref
+    d_float = Pref*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //12 Q ref
+    d_float = Qref*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //13 R ref
+    d_float = Rref*180/PI;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //14 T ref
+    d_float = T_ref/BATTERY_VOLTAGE;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //15 Voltage
+    d_float = Voltage;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //16 Ax
+    d_float = Ax;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //17 Ay
+    d_float = Ay;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //18 Az
+    d_float = Az;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+
+    //19 Az
+    d_float = Acc_norm;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+
+
+    //Send !
+    telemetry_send(senddata, sizeof(senddata));
+  }
+}
+
+
+void float2byte(float x, uint8_t* dst)
+{
+  uint8_t* dummy;
+  dummy = (uint8_t*)&x;
+  dst[0]=dummy[0];
+  dst[1]=dummy[1];
+  dst[2]=dummy[2];
+  dst[3]=dummy[3];
+}
+
+void append_data(uint8_t* data , uint8_t* newdata, uint8_t index, uint8_t len)
+{
+  for(uint8_t i=index;i<index+len;i++)
+  {
+    data[i]=newdata[i-index];
+  }
 }
 
 uint8_t lock_com(void)
@@ -767,170 +1057,11 @@ uint8_t lock_com(void)
   return state;
 }
 
-uint8_t logdata_out_com(void)
-{
-  static uint8_t chatta=0,state=0;
-  if( Stick[LOG] == 0 
-   && Stick[THROTTLE] == 0 
-   && Stick[RUDDER]  > 0.4
-   && Stick[AILERON] > 0.4 
-   && Stick[ELEVATOR] > 0.4)
-  {
-    chatta++;
-    if(chatta>50){
-      chatta=50;
-      state=1;
-    }
-  }
-  else 
-  {
-    chatta=0;
-    state=0;
-  }
-  return state;
-}
-
 void motor_stop(void)
 {
   set_duty_fr(0.0);
   set_duty_fl(0.0);
   set_duty_rr(0.0);
   set_duty_rl(0.0);
-}
-
-void logging(void)
-{  
-  //Logging
-  if(Stick[LOG] == 1)
-  { 
-    if(Logflag==0)
-    {
-      Logflag=1;
-      LogdataCounter=0;
-    }
-    if(LogdataCounter+DATANUM<LOGDATANUM)
-    {
-      Logdata[LogdataCounter++]=Wp;//-Pbias;              //1
-      Logdata[LogdataCounter++]=Wq;//-Qbias;              //2
-      Logdata[LogdataCounter++]=Wr;//-Rbias;              //3
-      Logdata[LogdataCounter++]=Ax;                       //4
-      Logdata[LogdataCounter++]=Ay;                       //5
-      Logdata[LogdataCounter++]=Az;                       //6
-      Logdata[LogdataCounter++]=Pref;                     //7
-      Logdata[LogdataCounter++]=Qref;                     //8
-      Logdata[LogdataCounter++]=Rref;                     //9
-      Logdata[LogdataCounter++]=Phi-Phi_bias;             //10
-
-      Logdata[LogdataCounter++]=Theta-Theta_bias;         //11
-      Logdata[LogdataCounter++]=Psi-Psi_bias;             //12
-      Logdata[LogdataCounter++]=Phi_ref;                  //13
-      Logdata[LogdataCounter++]=Theta_ref;                //14
-      Logdata[LogdataCounter++]=Psi_ref;                  //15
-      Logdata[LogdataCounter++]=P_com;                    //16
-      Logdata[LogdataCounter++]=Q_com;                    //17
-      Logdata[LogdataCounter++]=R_com;                    //18
-      Logdata[LogdataCounter++]=p_pid.m_filter_output;    //19
-      Logdata[LogdataCounter++]=q_pid.m_filter_output;    //20
-
-      Logdata[LogdataCounter++]=r_pid.m_filter_output;    //21
-      Logdata[LogdataCounter++]=phi_pid.m_filter_output;  //22
-      Logdata[LogdataCounter++]=theta_pid.m_filter_output;//23
-      Logdata[LogdataCounter++]=Pbias;                    //24
-      Logdata[LogdataCounter++]=Qbias;                    //25
-      Logdata[LogdataCounter++]=Rbias;                    //26
-      Logdata[LogdataCounter++]=T_ref;                    //27
-      Logdata[LogdataCounter++]=Acc_norm;                 //28
-      
-    }
-    else Logflag=2;
-  }
-  else
-  { 
-    if(Logflag>0)
-    {
-      Logflag=0;
-      LogdataCounter=0;
-    }
-  }
-}
-
-void log_output(void)
-{
-  if(LogdataCounter==0)
-  {
-    Serial2.printf("#Roll rate PID gain\r\n");
-    p_pid.printGain();
-    Serial2.printf("#Pitch rate PID gain\r\n");
-    q_pid.printGain();
-    Serial2.printf("#Yaw rate PID gain\r\n");
-    r_pid.printGain();
-    Serial2.printf("#Roll angle PID gain\r\n");
-    phi_pid.printGain();
-    Serial2.printf("#Pitch angle PID gain\r\n");
-    theta_pid.printGain();
-    Serial2.printf("#Phi_trim:%f Theta_trim:%f\r\n", Phi_trim, Theta_trim);
-    Serial2.printf("#Over_g:%f Over_rate:%f\r\n", Over_g, Over_rate);
-  }
-  if(LogdataCounter+DATANUM<LOGDATANUM)
-  {
-    //LockMode=0;
-    Serial2.printf("%10.2f ", Log_time);
-    Log_time=Log_time + 0.01;
-    for (uint8_t i=0;i<DATANUM;i++)
-    {
-      Serial2.printf("%12.5f",Logdata[LogdataCounter+i]);
-    }
-    Serial2.printf("\r\n");
-    LogdataCounter=LogdataCounter + DATANUM;
-  }
-  else 
-  {
-    Mode = STAY_MODE;
-    Logoutputflag = 0;
-    LockMode = 0;
-    Log_time = 0.0;
-    LogdataCounter = 0;
-  }
-}
-
-void variable_init(void)
-{
-}
-
-void output_data(void)
-{
-  Serial.printf("%9.3f,"
-         "%13.8f,%13.8f,%13.8f,%13.8f,"
-         "%13.8f,%13.8f,%13.8f,"
-         "%6u,%6u,"
-         "%13.8f,%13.8f,%13.8f,"
-         "%13.8f,%13.8f,%13.8f,"
-         "%13.8f,%13.8f,%13.8f"
-         //"%13.8f"
-         "\n"
-            ,Elapsed_time//1
-            ,Quat.q0, Quat.q1, Quat.q2, Quat.q3//2~5 
-            ,Quat.q0, Quat.q1, Quat.q2//6~8
-            //,Phi-Phi_bias, Theta-Theta_bias, Psi-Psi_bias//6~8
-            ,D_time, D_time2//10,11
-            ,Ax, Ay, Az//11~13
-            ,Wp, Wq, Wr//14~16
-            ,Mx, My, Mz//17~19
-            //,mag_norm
-        ); //20
-}
-
-void output_sensor_raw_data(void)
-{
-  Serial.printf("%9.3f,"
-         "%13.5f,%13.5f,%13.5f,"
-         "%13.5f,%13.5f,%13.5f,"
-         "%13.5f,%13.5f,%13.5f"
-         "\n"
-            ,Elapsed_time//1
-            ,Ax, Ay, Az//2~4
-            ,Wp, Wq, Wr//5~7
-            ,Mx, My, Mz//8~10
-        ); //20
 }
 

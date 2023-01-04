@@ -3,38 +3,57 @@
 #include <WiFi.h>
 #include <esp_now.h>
 
-esp_now_peer_info_t slave;
+//esp_now_peer_info_t slave;
 
 
 int player = 0;
 int battery = 0;
 float rctime=0.0;
+volatile uint8_t Connect_flag = 0;
+
+//Telemetry相手のMAC ADDRESS 4C:75:25:AD:B6:6C
+const uint8_t addr[6] = {0x4C, 0x75, 0x25, 0xAD, 0xB6, 0x6C};
+
+esp_now_peer_info_t peerInfo;
 
 //RC
 volatile float Stick[16];
 
 // 受信コールバック
-void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len) {
-  char macStr[18];
-  char msg[1];
-  char strdata[200];
+void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len) 
+{
+  Connect_flag = 1;
 
-  //snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-  //        mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  //Serial.printf("Last Packet Recv from: %s\n", macStr);
-  //Serial.printf("Last Packet Recv Data(%d): ", data_len);
-  //for ( int i = 0 ; i < data_len ; i++ ) {
-  //  msg[1] = data[i];
-  //  Serial.print(data[i]);
-  //  Serial.print(" ");
-  //}
-  //Serial.println("");
+  uint8_t* d_int;
+  int16_t d_short;
+  float d_float;
 
-  Stick[RUDDER] = (short)(recv_data[0]*256+recv_data[1]);
-  Stick[THROTTLE] = (short)(recv_data[2]*256+recv_data[3]);
-  Stick[AILERON]  = (short)(recv_data[4]*256+recv_data[5])/1000.0;
-  Stick[ELEVATOR] = (short)(recv_data[6]*256+recv_data[7])/1000.0;
-  Stick[BUTTON] = recv_data[10];
+  d_int = (uint8_t*)&d_short;
+  d_int[0]=recv_data[0];
+  d_int[1]=recv_data[1];
+  Stick[RUDDER]=(float)d_short;
+
+  d_int[0]=recv_data[2];
+  d_int[1]=recv_data[3];
+  Stick[THROTTLE]=(float)d_short;
+
+  d_int = (uint8_t*)&d_float;
+  d_int[0] = recv_data[4];
+  d_int[1] = recv_data[5];
+  d_int[2] = recv_data[6];
+  d_int[3] = recv_data[7];
+  Stick[AILERON]  = d_float;
+
+  d_int[0] = recv_data[8];
+  d_int[1] = recv_data[9];
+  d_int[2] = recv_data[10];
+  d_int[3] = recv_data[11];
+  Stick[ELEVATOR]  = d_float;
+
+  Stick[BUTTON] = recv_data[12];
+  Stick[BUTTON_A] = recv_data[13];
+  Stick[CONTROLMODE] = recv_data[14];
+  
   Stick[LOG] = 0.0;
 
   //Normalize
@@ -43,13 +62,6 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len)
   Stick[AILERON] /= (0.5*3.14159);
   Stick[ELEVATOR] /= (0.5*3.14159);
   if(Stick[THROTTLE]<0.0) Stick[THROTTLE]=0.0;
-
-//  sprintf(strdata, "THR:%7.3f RUD:%7.3f AIL: %7.3f ELE: %7.3f Btn: %2d\n", 
-//    Stick[THROTTLE], Stick[RUDDER], Stick[AILERON], Stick[ELEVATOR], (int)Stick[BUTTON]);
-//  sprintf(strdata, "%7.3f %7.3f %7.3f %7.3f %7.3f %2d\r\n", 
-//    rctime, Stick[THROTTLE], Stick[RUDDER], Stick[AILERON], Stick[ELEVATOR], (int)Stick[BUTTON]);
-//  Serial.print(strdata);
-  rctime = rctime + 0.01;
 }
 
 void rc_init(void)
@@ -60,6 +72,8 @@ void rc_init(void)
   // ESP-NOW初期化
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
+  Serial.printf("MAC ADDRESS: %s\r\n", (WiFi.macAddress()).c_str());
+
   if (esp_now_init() == ESP_OK) {
     Serial.println("ESPNow Init Success");
   } else {
@@ -67,25 +81,32 @@ void rc_init(void)
     ESP.restart();
   }
 
-  // マルチキャスト用Slave登録
-  memset(&slave, 0, sizeof(slave));
-  for (int i = 0; i < 6; ++i) {
-    slave.peer_addr[i] = (uint8_t)0xff;
-  }
+  //ペアリング
   
-  esp_err_t addStatus = esp_now_add_peer(&slave);
-  if (addStatus == ESP_OK) {
-    // Pair success
-    Serial.println("Pair success");
+  memcpy(peerInfo.peer_addr, addr, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) 
+  {
+        Serial.println("Failed to add peer");
+        return;
   }
-  // ESP-NOWコールバック登録
-  // esp_now_register_send_cb(OnDataSent);
-  esp_now_register_recv_cb(OnDataRecv);
 
-    // Ps3.attach(notify);
-    // Ps3.attachOnConnect(onConnect);
-    // Ps3.begin(BTID);
-    Serial.println("Ready.");
+  // ESP-NOWコールバック登録
+  esp_now_register_recv_cb(OnDataRecv);
+  Serial.println("ESP-NOW Ready.");
+  Serial.println("Wait Contoroller ready....");
+  //while(Connect_flag==0);
+  Serial.println("Contoroller ready !");
+
+}
+
+void telemetry_send(uint8_t* data, uint16_t datalen)
+{
+  //uint8_t data[1];
+  //data[0]=0xff;
+  esp_err_t result = esp_now_send(peerInfo.peer_addr, data, datalen);
+  //Serial.printf("%d\r\n", sizeof(data));
 }
 
 void rc_end(void)

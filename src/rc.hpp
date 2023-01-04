@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #ifndef RC_HPP
 #define RC_HPP
 
@@ -11,6 +13,8 @@
 #define DPAD_LEFT 7
 #define DPAD_RIGHT 8
 #define BUTTON 9
+#define BUTTON_A 10
+#define CONTROLMODE 11
 
 #define RUDDER_MAX 511
 #define RUDDER_MIN -512
@@ -31,6 +35,7 @@ void rc_init(void);
 void rc_demo(void);
 void rc_end(void);
 bool rc_isconnected(void);
+void telemetry_send(uint8_t* data, uint16_t datalen);
 
 extern volatile float Stick[16];
 
