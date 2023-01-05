@@ -615,6 +615,7 @@ void angle_control(void)
   {
     Led_color = RED;
     
+    #if 0
     //Flip
     if ( (Stick[BUTTON_A] == 1) || (Flip_flag ==1) )
     {
@@ -645,6 +646,7 @@ void angle_control(void)
       }
       Flip_counter++;
       #endif
+      #endif
     }
     //Angle Control
     else
@@ -667,18 +669,6 @@ void angle_control(void)
     }
     
   }
-  #if 0
-  //For debug
-  Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f\r\n", 
-    timeval, 
-    Pref, Qref, 
-    phi_err, theta_err, 
-    Aileron_center, Phi_com, 
-    Elevator_center, Tht_com);
-
-  timeval += 0.0025;
-  #endif
-
 }
 
 void m5_atom_led(CRGB p, uint8_t state)
