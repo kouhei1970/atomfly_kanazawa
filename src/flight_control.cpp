@@ -199,12 +199,12 @@ void mpu6886_byte_write(uint8_t reg_addr, uint8_t data)
 void imu_init(void)
 {
   uint8_t data;
-  const uint8_t filter_config = 2;
+  const uint8_t filter_config = 2;//今の所2が最高　2023/1/4
   //Cutoff frequency
   //filter_config Gyro Accel
   //0 250    218.1 log140 割と触れは小さい
   //1 176    218.1 log141 大きい角度で触れるが飛びはない
-  //2 92     99.0  log142 突然角度推定値が飛ぶ
+  //2 92     99.0  log142 推定値が飛ぶがたぶん3の設定にしかできてなかった
   //3 41     44.8  log143 わかりずらいがロールに飛びがある
   //4 20     21.2
   //5 10     10.2
@@ -426,46 +426,17 @@ void control_init(void)
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(1.0f, 1.00f, 0.03f, 0.125f, 0.0025f);//Roll rate control gain
-  q_pid.set_parameter(1.0f, 1.00f, 0.03f, 0.125f, 0.0025f);//Pitch rate control gain
+  p_pid.set_parameter(0.8f, 0.7f, 0.03f, 0.125f, 0.0025f);//Roll rate control gain
+  q_pid.set_parameter(0.8f, 0.7f, 0.03f, 0.125f, 0.0025f);//Pitch rate control gain
   r_pid.set_parameter(3.0f, 5.0f, 0.00f, 0.125f, 0.0025f);//Yaw rate control gain
+
   //Angle control
-  phi_pid.set_parameter  ( 20.0f, 2.8f, 0.04f, 0.125f, 0.0025f);
-  theta_pid.set_parameter( 20.0f, 2.8f, 0.04f, 0.125f, 0.0025f);
-
-  //Rate control
-  //p_pid.set_parameter(0.6f, 1.1f, 0.00005f, 1.0f, 0.0025f);//Roll rate control gain
-  //q_pid.set_parameter(0.8f, 1.3f, 0.00002f, 1.0f, 0.0025f);//Pitch rate control gain
-  //r_pid.set_parameter(3.0f, 1.0f, 0.00f, 1.0f, 0.0025f);//Yaw rate control gain
-  //Angle control
-  //phi_pid.set_parameter  ( 0.0f, 0.28f, 0.00000f, 30.0f, 0.0025f);
-  //theta_pid.set_parameter( 0.0f, 0.28f, 0.00000f, 30.0f, 0.0025f);
-
-
-
-  //phi_pid.set_parameter  ( 1.1f, 0.28f, 0.00000f, 30.0f, 0.0025f);
-  //theta_pid.set_parameter( 1.1f, 0.28f, 0.00000f, 30.0f, 0.0025f);
-
-  //phi_pid.set_parameter  ( 1.0f, 0.1f, 0.005f, 0.002f, 0.0025f);
-  //theta_pid.set_parameter( 1.0f, 0.1f, 0.005f, 0.002f, 0.0025f);
-
-
-  //p_pid.set_parameter(0.8f, 0.7f, 0.010f, 0.002f, 0.0025f);//Roll rate control gain
-  //q_pid.set_parameter(0.9f, 0.7f, 0.006f, 0.002f, 0.0025f);//Pitch rate control gain
-  //r_pid.set_parameter(3.0f, 1.0f, 0.000f, 0.015f, 0.0025f);//Yaw rate control gain
-
-
-  //phi_pid.set_parameter  ( 8.0f, 8.0f, 0.005f, 0.002f, 0.0025f);
-  //theta_pid.set_parameter( 8.0f, 8.0f, 0.005f, 0.002f, 0.0025f);
+  phi_pid.set_parameter  ( 20.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
+  theta_pid.set_parameter( 17.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
 
 
   //phi_pid.set_parameter  ( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);//振動
   //theta_pid.set_parameter( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);
-
-  //p_pid.set_parameter(0.8f, 0.7f, 0.010f, 0.002f, 0.0025f);//Roll rate control gain
-  //q_pid.set_parameter(0.9f, 0.7f, 0.006f, 0.002f, 0.0025f);//Pitch rate control gain
-  //r_pid.set_parameter(3.0f, 1.0f, 0.000f, 0.015f, 0.0025f);//Yaw rate control gain
-
 
   //phi_pid.set_parameter  ( 12.0, 8.0, 0.005, 0.002, 0.0025);//これも中々良い
   //theta_pid.set_parameter( 12.0, 8.0, 0.005, 0.002, 0.0025);
@@ -473,33 +444,9 @@ void control_init(void)
   //phi_pid.set_parameter  ( 6.0, 8.0, 0.005, 0.002, 0.0025);//中々良い
   //theta_pid.set_parameter( 6.0, 8.0, 0.005, 0.002, 0.0025);
   
-  //phi_pid.set_parameter  ( 1.0, 1.0, 0.001, 0.002, 0.0025);//Roll angle control gain
-  //theta_pid.set_parameter( 1.0, 1.0, 0.001, 0.002, 0.0025);//Pitch angle control gain
-
-  //phi_pid.set_parameter  ( 6.5, 8.5, 0.005, 0.002, 0.0025);
-  //theta_pid.set_parameter( 6.5, 8.5, 0.005, 0.002, 0.0025);
-
-  //phi_pid.set_parameter  ( 6.0, 9.0, 0.005, 0.002, 0.0025);//中々良い
-  //theta_pid.set_parameter( 6.0, 9.0, 0.005, 0.002, 0.0025);
-
   //phi_pid.set_parameter  ( 6.0, 12.0, 0.005, 0.002, 0.0025);//NG 左右にすーっと動く
   //theta_pid.set_parameter( 6.0, 12.0, 0.005, 0.002, 0.0025);
 
-  //phi_pid.set_parameter  ( 7.0, 9.5, 0.005, 0.002, 0.0025);
-  //theta_pid.set_parameter( 7.0, 9.5, 0.005, 0.002, 0.0025);
-
-  //phi_pid.set_parameter  ( 10.0, 9.5, 0.005, 0.002, 0.0025);
-  //theta_pid.set_parameter( 10.0, 9.5, 0.005, 0.002, 0.0025);
-
-  //phi_pid.set_parameter  ( 5.0, 9.5, 0.005, 0.002, 0.0025);
-  //theta_pid.set_parameter( 5.0, 9.5, 0.005, 0.002, 0.0025);
-
-  //phi_pid.set_parameter  ( 2.5, 9.5, 0.005, 0.002, 0.0025);
-  //theta_pid.set_parameter( 2.5, 9.5, 0.005, 0.002, 0.0025);
-
-  //phi_pid.set_parameter  ( 2.5, 4.5, 0.005, 0.002, 0.0025);
-  //theta_pid.set_parameter( 2.5, 4.5, 0.005, 0.002, 0.0025);
- 
   //phi_pid.set_parameter  ( 25.0, 0.4, 0.004, 0.002, 0.0025);//Roll angle control gain
   //theta_pid.set_parameter( 22.0, 0.4, 0.004, 0.002, 0.0025);//Pitch angle control gain
   //psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
@@ -522,7 +469,8 @@ void get_command(void)
   float thlo = Stick[THROTTLE];
   if (thlo>1.0f) thlo = 1.0f;
   if (thlo<0.0f) thlo = 0.0f;
-  T_ref = (3.27f*thlo -5.31f*thlo*thlo + 3.04f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  //T_ref = (3.27f*thlo -5.31f*thlo*thlo + 3.04f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  T_ref = (2.86f*thlo -4.81f*thlo*thlo + 2.85f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
   Phi_com = 0.5*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
@@ -874,9 +822,9 @@ void sensor_read(void)
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
   Acc_norm = acc_filter.update(acc_norm);
-  if (Acc_norm>10.0) 
+  if (Acc_norm>7.5) 
   {
-    OverG_flag = 0;
+    OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
   }
   
