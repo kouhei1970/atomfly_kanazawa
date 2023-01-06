@@ -471,7 +471,8 @@ void get_command(void)
   if (thlo<0.0f) thlo = 0.0f;
   //T_ref = (3.27f*thlo -5.31f*thlo*thlo + 3.04f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (2.92f*thlo -4.90f*thlo*thlo + 2.88f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
-  T_ref = (3.01f*thlo -5.20f*thlo*thlo + 3.14f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  //T_ref = (3.01f*thlo -5.20f*thlo*thlo + 3.14f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  T_ref = (3.46f*thlo -5.74f*thlo*thlo + 3.23f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
   Phi_com = 0.5*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
