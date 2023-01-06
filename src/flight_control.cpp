@@ -431,7 +431,7 @@ void control_init(void)
   r_pid.set_parameter(3.0f, 5.0f, 0.00f, 0.125f, 0.0025f);//Yaw rate control gain
 
   //Angle control
-  phi_pid.set_parameter  ( 20.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
+  phi_pid.set_parameter  ( 10.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
   theta_pid.set_parameter( 17.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
 
 
@@ -615,10 +615,11 @@ void angle_control(void)
   {
     Led_color = RED;
     
-    #if 0
+    
     //Flip
     if ( (Stick[BUTTON_A] == 1) || (Flip_flag ==1) )
     {
+      #if 0
       if (Flip_flag == 0)Flip_flag = 1;
       if (Flip_counter >400)
       {
@@ -646,8 +647,9 @@ void angle_control(void)
       }
       Flip_counter++;
       #endif
-      #endif
+    #endif
     }
+    
     //Angle Control
     else
     {
