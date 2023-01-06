@@ -431,7 +431,7 @@ void control_init(void)
   r_pid.set_parameter(3.0f, 5.0f, 0.00f, 0.125f, 0.0025f);//Yaw rate control gain
 
   //Angle control
-  phi_pid.set_parameter  ( 10.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
+  phi_pid.set_parameter  ( 12.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
   theta_pid.set_parameter( 17.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);
 
 
@@ -470,7 +470,8 @@ void get_command(void)
   if (thlo>1.0f) thlo = 1.0f;
   if (thlo<0.0f) thlo = 0.0f;
   //T_ref = (3.27f*thlo -5.31f*thlo*thlo + 3.04f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
-  T_ref = (2.92f*thlo -4.90f*thlo*thlo + 2.88f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  //T_ref = (2.92f*thlo -4.90f*thlo*thlo + 2.88f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  T_ref = (3.01f*thlo -5.20f*thlo*thlo + 3.14f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
   Phi_com = 0.5*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
