@@ -67,19 +67,19 @@ volatile float Phi=0.0f, Theta=0.0f, Psi=0.0f;
 volatile float Phi_ref=0.0f, Theta_ref=0.0f, Psi_ref=0.0f;
 volatile float Elevator_center=0.0f, Aileron_center=0.0f, Rudder_center=0.0f;
 volatile float Pref=0.0f, Qref=0.0f, Rref=0.0f;
-volatile float Phi_trim   =  0.0f;
-volatile float Theta_trim =  0.0f;
+volatile float Phi_trim   =  0.8f*M_PI/180.0f;
+volatile float Theta_trim = -0.2f*M_PI/180.0f;
 volatile float Psi_trim   =  0.0f;
 
 //Log
-//uint16_t LogdataCounter=0;
 uint8_t Logflag=0;
+uint8_t Telem_cnt = 0;
+//uint16_t LogdataCounter=0;
 //volatile uint8_t Logoutputflag=0;
 //float Log_time=0.0f;
 //const uint8_t DATANUM=28; //Log Data Number
 //const uint32_t LOGDATANUM=DATANUM*700;
 //float Logdata[LOGDATANUM];
-uint8_t Telem_cnt = 0;
 
 //Machine state
 float Timevalue=0.0f;
@@ -157,7 +157,6 @@ void init_atomfly(void)
   //while(!rc_isconnected());
   
   imu_init();
-  
   //test_rangefinder();
   Drone_ahrs.begin(400.0);
   ina3221.begin();
@@ -213,7 +212,7 @@ void imu_init(void)
 
   //Mdgwick filter 実験
   // filter_config=0において実施
-  //beta =0 後半角度増大
+  //beta =0 次第に角度増大（角速度の積分のみに相当する）
   //beta=0.5
 
   M5.IMU.Init();
@@ -433,9 +432,10 @@ void control_init(void)
   //Roll Ti を大きくしてみる
 
   //Angle control
-  phi_pid.set_parameter  ( 12.0f, 1000.0f, 0.055f, 0.125f, 0.0025f);
-  theta_pid.set_parameter( 17.0f, 1000.0f, 0.055f, 0.125f, 0.0025f);
-  //微分ゲイン0.05がこれまでの最高性能
+  phi_pid.set_parameter  ( 12.0f, 1000.0f, 0.07f, 0.125f, 0.0025f);//12
+  theta_pid.set_parameter( 17.0f, 1000.0f, 0.07f, 0.125f, 0.0025f);//17
+  //微分ゲイン0.055がこれまでの最高性能
+  //0.07はカクカクする
 
   //phi_pid.set_parameter  ( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);//振動
   //theta_pid.set_parameter( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);
@@ -496,6 +496,24 @@ void get_command(void)
     Pref = 240*PI/180*Phi_com;
     Qref = 240*PI/180*Tht_com;
   }
+
+  // A button
+  if (Stick[BUTTON_A]==1)
+  {
+    Flip_counter++;
+    if (Flip_counter>20)Flip_counter=20;
+  }
+  else if (Flip_counter == 20)
+  {
+    if (Flip_flag == 0)Flip_flag =1;
+    else Flip_flag = 0;
+    Flip_counter = 0;
+  }
+  else if (Flip_counter<20)
+  {
+    Flip_counter = 0;
+  }
+
 }
 
 void rate_control(void)
@@ -509,7 +527,11 @@ void rate_control(void)
   {
     if(T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold)
     {
-      if(Control_mode == ANGLECONTROL)Led_color=0xffff00;
+      if(Control_mode == ANGLECONTROL)
+      {
+        if(Flip_flag==0)Led_color=0xffff00;
+        else Led_color = 0xFF9933;
+      }
       else Led_color = 0xDC669B;
       motor_stop();
       p_pid.reset();
@@ -613,19 +635,20 @@ void angle_control(void)
     Aileron_center  = Phi_com;
     Elevator_center = Tht_com;
 
-    Phi_bias   = Phi;
-    Theta_bias = Theta;
+    //Phi_bias   = Phi;
+    //Theta_bias = Theta;
     /////////////////////////////////////
   
   }
   else
   {
-    Led_color = RED;
+    
     
     
     //Flip
-    if ( (Stick[BUTTON_A] == 1) || (Flip_flag ==1) )
-    {
+    if ( Flip_flag == 1 )
+    { 
+      Led_color = 0xFF9933;
       #if 0
       if (Flip_flag == 0)Flip_flag = 1;
       if (Flip_counter >400)
@@ -655,11 +678,25 @@ void angle_control(void)
       Flip_counter++;
       #endif
     #endif
+
+      //Get Roll and Pitch angle ref 
+      Phi_ref   = 0.0f;//
+      Theta_ref = 0.0f;//
+
+      //Error
+      phi_err   = Phi_ref   - (Phi   - Phi_bias);
+      theta_err = Theta_ref - (Theta - Theta_bias);
+    
+      //PID
+      Pref = phi_pid.update(phi_err);
+      Qref = theta_pid.update(theta_err);
+
     }
     
     //Angle Control
     else
     {
+      Led_color = RED;
       //Get Roll and Pitch angle ref 
       Phi_ref   = 0.5f * M_PI * (Phi_com - Aileron_center);
       Theta_ref = 0.5f * M_PI * (Tht_com - Elevator_center);
@@ -669,7 +706,7 @@ void angle_control(void)
       if (Theta_ref <-(30.0f*M_PI/180.0f) ) Theta_ref =-30.0f*M_PI/180.0f;
 
       //Error
-      phi_err   = Phi_ref   - (Phi   - Phi_bias);
+      phi_err   = Phi_ref   - (Phi   - Phi_bias );
       theta_err = Theta_ref - (Theta - Theta_bias);
     
       //PID
@@ -806,8 +843,8 @@ void sensor_read(void)
   {
     Drone_ahrs.updateIMU(gx-Qbias*(float)RAD_TO_DEG, gy-Pbias*(float)RAD_TO_DEG, gz-Rbias*(float)RAD_TO_DEG, ax, ay, az);
     //Drone_ahrs.updateIMU(gx, gy, gz, ax, ay, az);
-    Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD;
-    Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD;
+    Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD - Theta_trim;
+    Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD - Phi_trim;
     Psi =   Drone_ahrs.getYaw()*(float)DEG_TO_RAD;
   }
 
