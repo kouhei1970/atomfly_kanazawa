@@ -25,6 +25,37 @@ const int ledChannel1 = 0;
 const int ledChannel2 = 5;
 const int resolution = 8;
 
+//Control period
+const float Control_period = 0.0025;//400Hz
+
+//PID Gain
+//Rate control PID gain
+const float P_kp = 0.8f;
+const float P_ti = 0.7f;
+const float P_td = 0.03f;
+const float P_eta = 0.125f
+
+const float Q_kp = 0.8f;
+const float Q_ti = 0.7f;
+const float Q_td = 0.03f;
+const float Q_eta = 0.125f
+
+const float R_kp = 3.0f;
+const float R_ti = 5.0f;
+const float R_td = 0.0f;
+const float R_eta = 0.125f
+
+//Angle control PID gain
+const float Phi_kp = 12.0f;
+const float Phi_ti = 1000.0f;
+const float Phi_td = 0.04f;
+const float Phi_eta = 0.125f
+
+const float Tht_kp = 17.0f;
+const float Tht_ti = 1000.0f;
+const float Tht_td = 0.04f;
+const float Tht_eta = 0.125f
+
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
 float r_rand = 180 / PI;
 
@@ -48,7 +79,7 @@ volatile float Elapsed_time=0.0f;
 volatile float Old_Elapsed_time=0.0f;
 
 //
-volatile uint32_t S_time=0,E_time=0,D_time=0,S_time2=0,E_time2=0,D_time2=0;
+volatile uint32_t S_time=0,E_time=0,D_time=0,S_time2=0,E_time2=0,Dt_time=0;
 
 //Counter
 uint8_t AngleControlCounter=0;
@@ -197,18 +228,18 @@ void mpu6886_byte_write(uint8_t reg_addr, uint8_t data)
 
 void imu_init(void)
 {
-  uint8_t data;
-  const uint8_t filter_config = 2;//今の所2が最高　2023/1/4
   //Cutoff frequency
   //filter_config Gyro Accel
-  //0 250    218.1 log140 割と触れは小さい
-  //1 176    218.1 log141 大きい角度で触れるが飛びはない
-  //2 92     99.0  log142 推定値が飛ぶがたぶん3の設定にしかできてなかった
-  //3 41     44.8  log143 わかりずらいがロールに飛びがある
+  //0 250    218.1 log140　Bad
+  //1 176    218.1 log141　Bad
+  //2 92     99.0  log142 Bad これはヨーガカクカクする
+  //3 41     44.8  log143 log188　Good!
   //4 20     21.2
   //5 10     10.2
   //6 5      5.1
   //7 3281   420.0
+  uint8_t data;
+  const uint8_t filter_config = 3;//今の所2はノイズが多くてダメ、log188は3
 
   //Mdgwick filter 実験
   // filter_config=0において実施
@@ -349,7 +380,6 @@ void loop_400Hz(void)
 
     //Rate Control
     rate_control();
-    D_time = micros();
   }
   else if(Mode == STAY_MODE)
   {
@@ -394,6 +424,8 @@ void loop_400Hz(void)
   Telem_cnt++;
   if (Telem_cnt>10-1)Telem_cnt = 0;
 
+  D_time = micros();
+  if(Telem_cnt == 1)Dt_time = D_time - E_time;
   //End Mode select
   //End of Loop_400Hz function
 }
@@ -424,19 +456,17 @@ void control_init(void)
 {
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
+
   //Rate control
-  p_pid.set_parameter(0.8f, 0.7f, 0.03f, 0.125f, 0.0025f);//Roll rate control gain
-  q_pid.set_parameter(0.8f, 0.7f, 0.03f, 0.125f, 0.0025f);//Pitch rate control gain
-  r_pid.set_parameter(3.0f, 5.0f, 0.00f, 0.125f, 0.0025f);//Yaw rate control gain
+  p_pid.set_parameter(P_kp, P_ti, P_td, P_eta, Control_period);//Roll rate control gain
+  q_pid.set_parameter(Q_kp, Q_ti, Q_td, Q_eta, Control_period);//Pitch rate control gain
+  r_pid.set_parameter(R_kp, R_ti, R_td, R_eta, Control_period);//Yaw rate control gain
   //Roll P gain を挙げてみて分散が減るかどうか考える
   //Roll Ti を大きくしてみる
 
   //Angle control
-  phi_pid.set_parameter  ( 12.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);//12
-  theta_pid.set_parameter( 17.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);//17
-  //微分ゲイン0.05がこれまでの最高性能
-  //0.07はカクカクする次は0.06を試す
-  //0.06もカクカク
+  phi_pid.set_parameter  (Phi_kp, Phi_ti, Phi_td, Phi_eta, Control_period);//Roll angle control gain
+  theta_pid.set_parameter(Tht_kp, Tht_ti, Tht_td, Tht_eta, Control_period);//Pitch angle control gain
 
   //phi_pid.set_parameter  ( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);//振動
   //theta_pid.set_parameter( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);
@@ -534,6 +564,10 @@ void rate_control(void)
         else Led_color = 0xFF9933;
       }
       else Led_color = 0xDC669B;
+      FR_duty = 0.0;
+      FL_duty = 0.0;
+      RR_duty = 0.0;
+      RL_duty = 0.0;
       motor_stop();
       p_pid.reset();
       q_pid.reset();
@@ -597,6 +631,10 @@ void rate_control(void)
       }
       else 
       {
+        FR_duty = 0.0;
+        FL_duty = 0.0;
+        RR_duty = 0.0;
+        RL_duty = 0.0;
         motor_stop();
         OverG_flag=0;
         LockMode = 0;
@@ -643,8 +681,6 @@ void angle_control(void)
   }
   else
   {
-    
-    
     
     //Flip
     if ( Flip_flag == 1 )
@@ -896,7 +932,7 @@ void telemetry(void)
   //Telemetry
   float d_float;
   uint8_t d_int[4];
-  uint8_t senddata[80]; 
+  uint8_t senddata[92]; 
   uint8_t index=0;  
 
   if(Mode > AVERAGE_MODE)
@@ -907,7 +943,7 @@ void telemetry(void)
     append_data(senddata, d_int, index, 4);
     index = index + 4;
     //2 delta Time
-    d_float = 1e-6*(D_time - E_time);
+    d_float = 1e-6*Dt_time;
     float2byte(d_float, d_int);
     append_data(senddata, d_int, index, 4);
     index = index + 4;
@@ -991,13 +1027,31 @@ void telemetry(void)
     float2byte(d_float, d_int);
     append_data(senddata, d_int, index, 4);
     index = index + 4;
-
-    //19 Az
+    //19 Acc Norm
     d_float = Acc_norm;
     float2byte(d_float, d_int);
     append_data(senddata, d_int, index, 4);
     index = index + 4;
-
+    //20 FR_duty
+    d_float = FR_duty;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //21 FL_duty
+    d_float = FL_duty;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //22 RR_duty
+    d_float = RR_duty;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //23 RL_duty
+    d_float = RL_duty;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
 
     //Send !
     telemetry_send(senddata, sizeof(senddata));
