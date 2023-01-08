@@ -425,15 +425,15 @@ void control_init(void)
   //Acceleration filter
   acc_filter.set_parameter(0.005, 0.0025);
   //Rate control
-  p_pid.set_parameter(0.8f, 0.7f, 0.031f, 0.125f, 0.0025f);//Roll rate control gain
+  p_pid.set_parameter(0.8f, 0.7f, 0.03f, 0.125f, 0.0025f);//Roll rate control gain
   q_pid.set_parameter(0.8f, 0.7f, 0.03f, 0.125f, 0.0025f);//Pitch rate control gain
   r_pid.set_parameter(3.0f, 5.0f, 0.00f, 0.125f, 0.0025f);//Yaw rate control gain
   //Roll P gain を挙げてみて分散が減るかどうか考える
   //Roll Ti を大きくしてみる
 
   //Angle control
-  phi_pid.set_parameter  ( 12.0f, 1000.0f, 0.055f, 0.125f, 0.0025f);//12
-  theta_pid.set_parameter( 17.0f, 1000.0f, 0.055f, 0.125f, 0.0025f);//17
+  phi_pid.set_parameter  ( 8.0f, 1000.0f, 0.05f, 0.125f, 0.0025f);//12
+  theta_pid.set_parameter( 9.0f, 1000.0f, 0.05f, 0.125f, 0.0025f);//17
   //微分ゲイン0.05がこれまでの最高性能
   //0.07はカクカクする次は0.06を試す
   //0.06もカクカク
@@ -647,7 +647,7 @@ void angle_control(void)
     
     
     //Flip
-    if ( Flip_flag == 1 )
+    if ( 0)//Flip_flag == 1 )
     { 
       Led_color = 0xFF9933;
       #if 0
@@ -681,16 +681,16 @@ void angle_control(void)
     #endif
 
       //Get Roll and Pitch angle ref 
-      Phi_ref   = 0.0f;//
-      Theta_ref = 0.0f;//
+      //Phi_ref   = 0.0f;//
+      //Theta_ref = 0.0f;//
 
       //Error
-      phi_err   = Phi_ref   - (Phi   - Phi_bias);
-      theta_err = Theta_ref - (Theta - Theta_bias);
+      //phi_err   = Phi_ref   - (Phi   - Phi_bias);
+      //theta_err = Theta_ref - (Theta - Theta_bias);
     
       //PID
-      Pref = phi_pid.update(phi_err);
-      Qref = theta_pid.update(theta_err);
+      //Pref = phi_pid.update(phi_err);
+      //Qref = theta_pid.update(theta_err);
 
     }
     
