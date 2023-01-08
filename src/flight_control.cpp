@@ -432,8 +432,8 @@ void control_init(void)
   //Roll Ti を大きくしてみる
 
   //Angle control
-  phi_pid.set_parameter  ( 8.0f, 1000.0f, 0.05f, 0.125f, 0.0025f);//12
-  theta_pid.set_parameter( 9.0f, 1000.0f, 0.05f, 0.125f, 0.0025f);//17
+  phi_pid.set_parameter  ( 12.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);//12
+  theta_pid.set_parameter( 17.0f, 1000.0f, 0.04f, 0.125f, 0.0025f);//17
   //微分ゲイン0.05がこれまでの最高性能
   //0.07はカクカクする次は0.06を試す
   //0.06もカクカク
