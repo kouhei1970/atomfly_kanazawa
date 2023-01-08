@@ -636,8 +636,8 @@ void angle_control(void)
     Aileron_center  = Phi_com;
     Elevator_center = Tht_com;
 
-    //Phi_bias   = Phi;
-    //Theta_bias = Theta;
+    Phi_bias   = Phi;
+    Theta_bias = Theta;
     /////////////////////////////////////
   
   }
@@ -647,7 +647,7 @@ void angle_control(void)
     
     
     //Flip
-    if ( 0)//Flip_flag == 1 )
+    if ( Flip_flag == 1 )
     { 
       Led_color = 0xFF9933;
       #if 0
@@ -681,16 +681,16 @@ void angle_control(void)
     #endif
 
       //Get Roll and Pitch angle ref 
-      //Phi_ref   = 0.0f;//
-      //Theta_ref = 0.0f;//
+      Phi_ref   = 0.0f;//
+      Theta_ref = 0.0f;//
 
       //Error
-      //phi_err   = Phi_ref   - (Phi   - Phi_bias);
-      //theta_err = Theta_ref - (Theta - Theta_bias);
+      phi_err   = Phi_ref   - (Phi   - Phi_bias);
+      theta_err = Theta_ref - (Theta - Theta_bias);
     
       //PID
-      //Pref = phi_pid.update(phi_err);
-      //Qref = theta_pid.update(theta_err);
+      Pref = phi_pid.update(phi_err);
+      Qref = theta_pid.update(theta_err);
 
     }
     
@@ -844,8 +844,8 @@ void sensor_read(void)
   {
     Drone_ahrs.updateIMU(gx-Qbias*(float)RAD_TO_DEG, gy-Pbias*(float)RAD_TO_DEG, gz-Rbias*(float)RAD_TO_DEG, ax, ay, az);
     //Drone_ahrs.updateIMU(gx, gy, gz, ax, ay, az);
-    Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD - Theta_trim;
-    Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD - Phi_trim;
+    Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD;
+    Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD;
     Psi =   Drone_ahrs.getYaw()*(float)DEG_TO_RAD;
   }
 
