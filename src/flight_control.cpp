@@ -429,6 +429,8 @@ void control_init(void)
   p_pid.set_parameter(0.82f, 0.7f, 0.033f, 0.125f, 0.0025f);//Roll rate control gain
   q_pid.set_parameter(0.8f, 0.7f, 0.03f, 0.125f, 0.0025f);//Pitch rate control gain
   r_pid.set_parameter(3.0f, 5.0f, 0.00f, 0.125f, 0.0025f);//Yaw rate control gain
+  //Roll P gain を挙げてみて分散が減るかどうか考える
+  //Roll Ti を大きくしてみる
 
   //Angle control
   phi_pid.set_parameter  ( 12.0f, 1000.0f, 0.055f, 0.125f, 0.0025f);
