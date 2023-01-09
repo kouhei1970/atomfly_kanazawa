@@ -1057,7 +1057,6 @@ void telemetry(void)
     append_data(senddata, d_int, index, 4);
     index = index + 4;
 
-
     //Send !
     telemetry_send(senddata, sizeof(senddata));
   }  
