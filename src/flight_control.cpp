@@ -363,6 +363,7 @@ void loop_400Hz(void)
     if (Power_flag == 0) m5_atom_led(Led_color, led);
     else m5_atom_led(POWEROFFCOLOR,led);
     //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
+#if 0
     if(Logflag==1&&LedBlinkCounter<100){
       LedBlinkCounter++;
     }
@@ -372,7 +373,7 @@ void loop_400Hz(void)
       if(Logflag==1)led=!led;
       else led=1;
     }
-
+#endif
     //Get command
     get_command();
 
