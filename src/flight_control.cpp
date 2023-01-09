@@ -33,28 +33,28 @@ const float Control_period = 0.0025;//400Hz
 const float P_kp = 0.8f;
 const float P_ti = 0.7f;
 const float P_td = 0.03f;
-const float P_eta = 0.125f
+const float P_eta = 0.125f;
 
 const float Q_kp = 0.8f;
 const float Q_ti = 0.7f;
 const float Q_td = 0.03f;
-const float Q_eta = 0.125f
+const float Q_eta = 0.125f;
 
 const float R_kp = 3.0f;
 const float R_ti = 5.0f;
 const float R_td = 0.0f;
-const float R_eta = 0.125f
+const float R_eta = 0.125f;
 
 //Angle control PID gain
 const float Phi_kp = 12.0f;
 const float Phi_ti = 1000.0f;
 const float Phi_td = 0.04f;
-const float Phi_eta = 0.125f
+const float Phi_eta = 0.125f;
 
 const float Tht_kp = 17.0f;
 const float Tht_ti = 1000.0f;
 const float Tht_td = 0.04f;
-const float Tht_eta = 0.125f
+const float Tht_eta = 0.125f;
 
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
 float r_rand = 180 / PI;
