@@ -1,4 +1,4 @@
-//log213
+//log214
 #include <Arduino.h>
 #include <M5Atom.h>
 #include <INA3221.h>
@@ -26,7 +26,7 @@ const int ledChannel2 = 5;
 const int resolution = 8;
 
 //Control period
-const float Control_period = 0.0025;//400Hz
+const float Control_period = 0.0025f;//400Hz
 
 //PID Gain
 //Rate control PID gain
@@ -240,7 +240,7 @@ void imu_init(void)
   //6 5      5.1
   //7 3281   420.0
   uint8_t data;
-  const uint8_t filter_config = 3;//今の所2はノイズが多くてダメ、log188は3
+  const uint8_t filter_config = 4;//今の所2はノイズが多くてダメ、log188は3
 
   //Mdgwick filter 実験
   // filter_config=0において実施
