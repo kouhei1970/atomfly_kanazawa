@@ -362,7 +362,17 @@ void loop_400Hz(void)
     //LED Blink
     if (Power_flag == 0) m5_atom_led(Led_color, led);
     else m5_atom_led(POWEROFFCOLOR,led);
-   
+    //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
+    if(Logflag==1&&LedBlinkCounter<100){
+      LedBlinkCounter++;
+    }
+    else
+    {
+      LedBlinkCounter=0;
+      if(Logflag==1)led=!led;
+      else led=1;
+    }
+
     //Get command
     get_command();
 
@@ -931,23 +941,132 @@ void telemetry(void)
   {
     Logflag = 1;
     index=2;
-    for (uint8_t i=0;i<(MAXINDEX-2);i++)
+    for (uint8_t i=0;i<(MAXINDEX-2)/4;i++)
     {
-      float2byte(0.0f, d_int);
+      d_float = 0.0;
+      float2byte(d_float, d_int);
       append_data(senddata, d_int, index, 4);
       index = index + 4;
     }
+    //Telemetry Header
     senddata[0]=99;
     senddata[1]=99;
+    index=2;
+    //P_kp
+    d_float = P_kp;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //P_ti
+    d_float = P_ti;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //P_td
+    d_float = P_td;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //P_eta
+    d_float = P_eta;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+
+    //Q_kp
+    d_float = Q_kp;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Q_ti
+    d_float = Q_ti;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Q_td
+    d_float = Q_td;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Q_eta
+    d_float = Q_eta;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+
+    //R_kp
+    d_float = R_kp;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //R_ti
+    d_float = R_ti;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //R_td
+    d_float = R_td;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //R_eta
+    d_float = R_eta;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+
+    //Phi_kp
+    d_float = Phi_kp;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Phi_ti
+    d_float = Phi_ti;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Phi_td
+    d_float = Phi_td;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Phi_eta
+    d_float = Phi_eta;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+
+    //Tht_kp
+    d_float = Tht_kp;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Tht_ti
+    d_float = Tht_ti;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Tht_td
+    d_float = Tht_td;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+    //Tht_eta
+    d_float = Tht_eta;
+    float2byte(d_float, d_int);
+    append_data(senddata, d_int, index, 4);
+    index = index + 4;
+
+
     //Send !
     telemetry_send(senddata, sizeof(senddata));
   }  
   else if(Mode > AVERAGE_MODE)
   {
-    index = 2;
+    //Telemetry Header
     senddata[0]=88;
     senddata[1]=88;
-
+    index = 2;
     //1 Time
     d_float = Elapsed_time;
     float2byte(d_float, d_int);
