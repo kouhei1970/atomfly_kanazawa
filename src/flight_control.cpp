@@ -362,16 +362,6 @@ void loop_400Hz(void)
     //LED Blink
     if (Power_flag == 0) m5_atom_led(Led_color, led);
     else m5_atom_led(POWEROFFCOLOR,led);
-    //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
-    if(Logflag==1&&LedBlinkCounter<100){
-      LedBlinkCounter++;
-    }
-    else
-    {
-      LedBlinkCounter=0;
-      if(Logflag==1)led=!led;
-      else led=1;
-    }
    
     //Get command
     get_command();
@@ -931,13 +921,29 @@ void sensor_read(void)
 void telemetry(void)
 {
   //Telemetry
+  const uint8_t MAXINDEX=94;
   float d_float;
   uint8_t d_int[4];
-  uint8_t senddata[92]; 
+  uint8_t senddata[MAXINDEX]; 
   uint8_t index=0;  
 
-  if(Mode > AVERAGE_MODE)
+  if(Logflag==0)
   {
+    Logflag = 1;
+    for (uint8_t i=0;i<MAXINDEX;i++)senddata[i];
+    senddata[0]=99;
+    senddata[1]=99;
+    index = 2;
+
+    //Send !
+    telemetry_send(senddata, sizeof(senddata));
+  }  
+  else if(Mode > AVERAGE_MODE)
+  {
+    index = 2;
+    senddata[0]=88;
+    senddata[1]=88;
+
     //1 Time
     d_float = Elapsed_time;
     float2byte(d_float, d_int);
