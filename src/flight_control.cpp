@@ -930,11 +930,15 @@ void telemetry(void)
   if(Logflag==0)
   {
     Logflag = 1;
-    for (uint8_t i=0;i<MAXINDEX;i++)senddata[i];
+    index=2;
+    for (uint8_t i=0;i<(MAXINDEX-2);i++)
+    {
+      float2byte(0.0f, d_int);
+      append_data(senddata, d_int, index, 4);
+      index = index + 4;
+    }
     senddata[0]=99;
     senddata[1]=99;
-    index = 2;
-
     //Send !
     telemetry_send(senddata, sizeof(senddata));
   }  
