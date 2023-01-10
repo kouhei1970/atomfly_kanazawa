@@ -1,4 +1,3 @@
-//log214
 #include <Arduino.h>
 #include <M5Atom.h>
 #include <INA3221.h>
@@ -47,12 +46,12 @@ const float R_eta = 0.125f;
 
 //Angle control PID gain
 const float Phi_kp = 15.0f;
-const float Phi_ti = 10.0f;
+const float Phi_ti = 50.0f;
 const float Phi_td = 0.055f;
 const float Phi_eta = 0.125f;
 
 const float Tht_kp = 21.0f;
-const float Tht_ti = 10.0f;
+const float Tht_ti = 50.0f;
 const float Tht_td = 0.055f;
 const float Tht_eta = 0.125f;
 
