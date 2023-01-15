@@ -372,6 +372,8 @@ void loop_400Hz(void)
       if(Logflag==1)led=!led;
       else led=1;
     }
+#else
+    led=1;
 #endif
     //Get command
     get_command();
@@ -565,6 +567,7 @@ void rate_control(void)
         else Led_color = 0xFF9933;
       }
       else Led_color = 0xDC669B;
+      
       FR_duty = 0.0;
       FL_duty = 0.0;
       RR_duty = 0.0;
