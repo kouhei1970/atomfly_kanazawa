@@ -903,7 +903,7 @@ void sensor_read(void)
     if (Over_rate == 0.0) Over_rate =rate_norm;
   } 
   #endif
-
+  #if 1
   Voltage = ina3221.getVoltage(INA3221_CH2);
   filterd_v = voltage_filter.update(Voltage);
 
@@ -912,7 +912,7 @@ void sensor_read(void)
     else Power_flag = 0;
     if ( Power_flag > POWER_FLG_MAX) Power_flag = POWER_FLG_MAX;
   }
-
+  #endif
 
   #if 0
   if(Stick[BUTTON_A]==1)
