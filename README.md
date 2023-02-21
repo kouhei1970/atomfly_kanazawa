@@ -52,10 +52,10 @@ git clone https://github.com/kouhei1970/atomfly_kanazawa
 ```
 
 1. vscode（PltformIO）を開いて、atomfly_kanazawaプロジェクトを開く
-2. 下部のCheck markのアイコンをクロックしてビルドを実行
+2. 下部のCheck markのアイコンをクリックしてビルドを実行
 
 ### 操縦コントローラ
 
 [Controller code](https://github.com/kouhei1970/m5stick_joystick)
 
-![Stick map](https://github.com/kouhei1970/atomfly_kanazawa/blob/develop/new_controller.png)
+![Stick map](new_controller.png)
