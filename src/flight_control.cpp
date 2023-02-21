@@ -39,18 +39,18 @@ const float Q_ti = 0.7f;
 const float Q_td = 0.017f;
 const float Q_eta = 0.125f;
 
-const float R_kp = 3.0f;
-const float R_ti = 5.0f;
-const float R_td = 0.0f;
+const float R_kp = 4.0f;
+const float R_ti = 0.7f;
+const float R_td = 0.001f;
 const float R_eta = 0.125f;
 
 //Angle control PID gain
-const float Phi_kp = 12.0f;
+const float Phi_kp = 13.0f;
 const float Phi_ti = 0.2f;
 const float Phi_td = 0.00f;//0.055
 const float Phi_eta = 0.125f;
 
-const float Tht_kp = 12.0f;
+const float Tht_kp = 13.0f;
 const float Tht_ti = 0.2f;
 const float Tht_td = 0.00f;//0.055
 const float Tht_eta = 0.125f;
