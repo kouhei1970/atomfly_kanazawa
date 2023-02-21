@@ -31,12 +31,12 @@ const float Control_period = 0.0025f;//400Hz
 //Rate control PID gain
 const float P_kp = 0.8f;
 const float P_ti = 0.7f;
-const float P_td = 0.036f;
+const float P_td = 0.017f;
 const float P_eta = 0.125f;
 
 const float Q_kp = 0.8f;
 const float Q_ti = 0.7f;
-const float Q_td = 0.036f;
+const float Q_td = 0.017f;
 const float Q_eta = 0.125f;
 
 const float R_kp = 3.0f;
@@ -45,14 +45,14 @@ const float R_td = 0.0f;
 const float R_eta = 0.125f;
 
 //Angle control PID gain
-const float Phi_kp = 15.0f;
-const float Phi_ti = 50.0f;
-const float Phi_td = 0.055f;
+const float Phi_kp = 22.0f;
+const float Phi_ti = 0.2f;
+const float Phi_td = 0.0015f;//0.055
 const float Phi_eta = 0.125f;
 
-const float Tht_kp = 21.0f;
-const float Tht_ti = 50.0f;
-const float Tht_td = 0.055f;
+const float Tht_kp = 22.0f;
+const float Tht_ti = 0.2f;
+const float Tht_td = 0.0015f;//0.055
 const float Tht_eta = 0.125f;
 
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
@@ -426,7 +426,7 @@ void loop_400Hz(void)
   }
 
   //Telemetry
-  //if (Telem_cnt == 0)telemetry();
+  if (Telem_cnt == 0)telemetry();
   Telem_cnt++;
   if (Telem_cnt>10-1)Telem_cnt = 0;
 
