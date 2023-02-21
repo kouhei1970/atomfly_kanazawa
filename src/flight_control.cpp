@@ -31,28 +31,28 @@ const float Control_period = 0.0025f;//400Hz
 //Rate control PID gain
 const float P_kp = 0.8f;
 const float P_ti = 0.7f;
-const float P_td = 0.036f;
+const float P_td = 0.017f;
 const float P_eta = 0.125f;
 
 const float Q_kp = 0.8f;
 const float Q_ti = 0.7f;
-const float Q_td = 0.036f;
+const float Q_td = 0.017f;
 const float Q_eta = 0.125f;
 
-const float R_kp = 3.0f;
-const float R_ti = 5.0f;
-const float R_td = 0.0f;
+const float R_kp = 4.0f;
+const float R_ti = 0.7f;
+const float R_td = 0.001f;
 const float R_eta = 0.125f;
 
 //Angle control PID gain
-const float Phi_kp = 15.0f;
-const float Phi_ti = 50.0f;
-const float Phi_td = 0.055f;
+const float Phi_kp = 13.0f;
+const float Phi_ti = 0.2f;
+const float Phi_td = 0.00f;//0.055
 const float Phi_eta = 0.125f;
 
-const float Tht_kp = 21.0f;
-const float Tht_ti = 50.0f;
-const float Tht_td = 0.055f;
+const float Tht_kp = 13.0f;
+const float Tht_ti = 0.2f;
+const float Tht_td = 0.00f;//0.055
 const float Tht_eta = 0.125f;
 
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
@@ -122,6 +122,9 @@ uint8_t OverG_flag = 0;
 uint8_t Flip_flag = 0;
 uint16_t Flip_counter = 0; 
 float Flip_time = 2.0;
+int8_t BtnA_counter = 0;
+uint8_t BtnA_on_flag = 0;
+uint8_t BtnA_off_flag =1;
 volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
 volatile uint8_t Power_flag = 0;
@@ -509,7 +512,9 @@ void get_command(void)
   //T_ref = (3.01f*thlo -5.20f*thlo*thlo + 3.14f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (3.46f*thlo -5.74f*thlo*thlo + 3.23f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (3.42f*thlo -6.00f*thlo*thlo + 3.58f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
-  T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  //T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+
 
 
   Phi_com = 0.4*Stick[AILERON];
@@ -531,21 +536,24 @@ void get_command(void)
   }
 
   // A button
-  if (Stick[BUTTON_A]==1)
+  if (Stick[BUTTON_A]==1) BtnA_counter ++;
+  else BtnA_counter --;
+  if (BtnA_counter>20)
   {
-    Flip_counter++;
-    if (Flip_counter>20)Flip_counter=20;
+    BtnA_counter=20;
+    if(BtnA_off_flag==1)
+    {
+      BtnA_on_flag = 1;
+      BtnA_off_flag = 0;
+    }
   }
-  else if (Flip_counter == 20)
+  if (BtnA_counter<-20)
   {
-    if (Flip_flag == 0)Flip_flag =1;
-    else Flip_flag = 0;
-    Flip_counter = 0;
+    BtnA_counter=-20;
+    BtnA_on_flag = 0;
+    BtnA_off_flag = 1;
   }
-  else if (Flip_counter<20)
-  {
-    Flip_counter = 0;
-  }
+ 
 
 }
 
@@ -660,6 +668,8 @@ void angle_control(void)
 
   if (Control_mode == RATECONTROL) return;
 
+  //Serial.printf("On=%d Off=%d Flip=%d Counter=%d\r\n", BtnA_on_flag, BtnA_off_flag, Flip_flag, Flip_counter);
+
   //PID Control
   if ((T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold))//Angle_control_on_duty_threshold))
   {
@@ -671,6 +681,9 @@ void angle_control(void)
     theta_pid.reset();
     phi_pid.set_error(Phi_ref);
     theta_pid.set_error(Theta_ref);
+    Flip_flag = 0;
+    Flip_counter = 0;
+
     /////////////////////////////////////
     // 以下の処理で、角度制御が有効になった時に
     // 急激な目標値が発生して機体が不安定になるのを防止する
@@ -686,51 +699,29 @@ void angle_control(void)
   {
     
     //Flip
-    if ( Flip_flag == 1 )
+    if (0)// (BtnA_on_flag == 1) || (Flip_flag == 1))
     { 
+      #if 0
       Led_color = 0xFF9933;
-      #if 0
-      if (Flip_flag == 0)Flip_flag = 1;
-      if (Flip_counter >400)
-      {
-        Flip_flag = 0;
-        Flip_counter = 0;
-      }
-      Pref = 2.0*PI;
-      Qref = 0.0;
-      Flip_counter++;
 
-      #if 0
+      BtnA_on_flag = 0;
       Flip_flag = 1;
 
       //PID Reset
       phi_pid.reset();
       theta_pid.reset();
     
-      Flip_time = 2.0;
+      Flip_time = 0.26;
       Pref = 2.0*PI/Flip_time;
       Qref = 0.0;
-      if (Flip_counter> (Flip_time/0.0025) )
+      if (Flip_counter > (uint16_t)(Flip_time/0.0025) )
       {
+        Flip_counter = (uint16_t)(Flip_time/0.0025);
         Flip_flag = 0;
         Flip_counter = 0;
       }
       Flip_counter++;
-      #endif
-    #endif
-
-      //Get Roll and Pitch angle ref 
-      Phi_ref   = 0.0f;//
-      Theta_ref = 0.0f;//
-
-      //Error
-      phi_err   = Phi_ref   - (Phi   - Phi_bias);
-      theta_err = Theta_ref - (Theta - Theta_bias);
-    
-      //PID
-      Pref = phi_pid.update(phi_err);
-      Qref = theta_pid.update(theta_err);
-
+      #endif  
     }
     
     //Angle Control
@@ -911,7 +902,7 @@ void sensor_read(void)
     if (Over_rate == 0.0) Over_rate =rate_norm;
   } 
   #endif
-
+  #if 1
   Voltage = ina3221.getVoltage(INA3221_CH2);
   filterd_v = voltage_filter.update(Voltage);
 
@@ -920,7 +911,7 @@ void sensor_read(void)
     else Power_flag = 0;
     if ( Power_flag > POWER_FLG_MAX) Power_flag = POWER_FLG_MAX;
   }
-
+  #endif
 
   #if 0
   if(Stick[BUTTON_A]==1)
