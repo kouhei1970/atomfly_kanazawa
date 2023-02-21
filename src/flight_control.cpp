@@ -45,14 +45,14 @@ const float R_td = 0.0f;
 const float R_eta = 0.125f;
 
 //Angle control PID gain
-const float Phi_kp = 22.0f;
+const float Phi_kp = 12.0f;
 const float Phi_ti = 0.2f;
-const float Phi_td = 0.0015f;//0.055
+const float Phi_td = 0.00f;//0.055
 const float Phi_eta = 0.125f;
 
-const float Tht_kp = 22.0f;
+const float Tht_kp = 12.0f;
 const float Tht_ti = 0.2f;
-const float Tht_td = 0.0015f;//0.055
+const float Tht_td = 0.00f;//0.055
 const float Tht_eta = 0.125f;
 
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
