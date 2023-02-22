@@ -3,7 +3,7 @@
 #include <INA3221.h>
 #include <Adafruit_BMP280.h>
 #include <math.h>
-#include <MadgwickAHRS.h>
+#include "MadgwickAHRS.h"
 #include "vl53l0x.h"
 #include "Adafruit_Sensor.h"
 #include "rc.hpp"
