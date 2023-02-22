@@ -691,8 +691,8 @@ void angle_control(void)
     Aileron_center  = Phi_com;
     Elevator_center = Tht_com;
 
-    Phi_bias   = Phi;
-    Theta_bias = Theta;
+    Phi_bias   = 0;
+    Theta_bias = 0;
     /////////////////////////////////////
   
   }
