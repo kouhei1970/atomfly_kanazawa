@@ -512,10 +512,10 @@ void get_command(void)
 
 
 
-  Phi_com = 0.4*Stick[AILERON];
+  Phi_com = 0.6*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
   if (Phi_com> 1.0f)Phi_com =  1.0f;  
-  Tht_com = 0.4*Stick[ELEVATOR];
+  Tht_com = 0.6*Stick[ELEVATOR];
   if (Tht_com<-1.0f)Tht_com = -1.0f;
   if (Tht_com> 1.0f)Tht_com =  1.0f;  
   Psi_com = Stick[RUDDER];
