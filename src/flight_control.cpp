@@ -3,7 +3,7 @@
 #include <INA3221.h>
 #include <Adafruit_BMP280.h>
 #include <math.h>
-#include <MadgwickAHRS.h>
+#include "MadgwickAHRS.h"
 #include "vl53l0x.h"
 #include "Adafruit_Sensor.h"
 #include "rc.hpp"
@@ -31,28 +31,28 @@ const float Control_period = 0.0025f;//400Hz
 //Rate control PID gain
 const float P_kp = 0.8f;
 const float P_ti = 0.7f;
-const float P_td = 0.017f;
+const float P_td = 0.015f;
 const float P_eta = 0.125f;
 
 const float Q_kp = 0.8f;
 const float Q_ti = 0.7f;
-const float Q_td = 0.017f;
+const float Q_td = 0.015f;
 const float Q_eta = 0.125f;
 
-const float R_kp = 4.0f;
-const float R_ti = 0.7f;
-const float R_td = 0.001f;
+const float R_kp = 3.0f;
+const float R_ti = 0.8f;
+const float R_td = 0.000f;
 const float R_eta = 0.125f;
 
 //Angle control PID gain
-const float Phi_kp = 13.0f;
-const float Phi_ti = 0.2f;
-const float Phi_td = 0.00f;//0.055
+const float Phi_kp = 18.0f;
+const float Phi_ti = 1.0f;
+const float Phi_td = 0.0f;//0.055
 const float Phi_eta = 0.125f;
 
-const float Tht_kp = 13.0f;
-const float Tht_ti = 0.2f;
-const float Tht_td = 0.00f;//0.055
+const float Tht_kp = 18.0f;
+const float Tht_ti = 1.0f;
+const float Tht_td = 0.0f;//0.055
 const float Tht_eta = 0.125f;
 
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
@@ -104,12 +104,6 @@ volatile float Psi_trim   =  0.0f;
 //Log
 uint8_t Logflag=0;
 uint8_t Telem_cnt = 0;
-//uint16_t LogdataCounter=0;
-//volatile uint8_t Logoutputflag=0;
-//float Log_time=0.0f;
-//const uint8_t DATANUM=28; //Log Data Number
-//const uint32_t LOGDATANUM=DATANUM*700;
-//float Logdata[LOGDATANUM];
 
 //Machine state
 float Timevalue=0.0f;
@@ -140,12 +134,11 @@ PID psi_pid;
 Filter acc_filter;
 Filter voltage_filter;
 
-void test_rangefinder(void);
 uint8_t init_i2c();
 void init_pwm();
 void control_init();
-void gyro_calibration(void);
 void variable_init(void);
+void gyro_calibration(void);
 void m5_atom_led(CRGB p, uint8_t state);
 void sensor_read(void);
 void get_command(void);
@@ -159,6 +152,7 @@ void set_duty_fr(float duty);
 void set_duty_fl(float duty);
 void set_duty_rr(float duty);
 void set_duty_rl(float duty);
+void test_rangefinder(void);
 
 void telemetry(void);
 void float2byte(float x, uint8_t* dst);
@@ -234,14 +228,14 @@ void imu_init(void)
   //filter_config Gyro Accel
   //0 250    218.1 log140　Bad
   //1 176    218.1 log141　Bad
-  //2 92     99.0  log142 Bad これはヨーガカクカクする
-  //3 41     44.8  log143 log188　Good!
+  //2 92     99.0  log142 Bad これはヨーガカクカクする log256
+  //3 41     44.8  log143 log188　Good! log257
   //4 20     21.2
   //5 10     10.2
   //6 5      5.1
   //7 3281   420.0
   uint8_t data;
-  const uint8_t filter_config = 2;//今の所2はノイズが多くてダメ、log188は3
+  const uint8_t filter_config = 2;//(今の所2はノイズが多くてダメ、log188は3)
 
   //Mdgwick filter 実験
   // filter_config=0において実施
@@ -517,10 +511,10 @@ void get_command(void)
 
 
 
-  Phi_com = 0.4*Stick[AILERON];
+  Phi_com = 0.6*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
   if (Phi_com> 1.0f)Phi_com =  1.0f;  
-  Tht_com = 0.4*Stick[ELEVATOR];
+  Tht_com = 0.6*Stick[ELEVATOR];
   if (Tht_com<-1.0f)Tht_com = -1.0f;
   if (Tht_com> 1.0f)Tht_com =  1.0f;  
   Psi_com = Stick[RUDDER];
@@ -690,8 +684,8 @@ void angle_control(void)
     Aileron_center  = Phi_com;
     Elevator_center = Tht_com;
 
-    Phi_bias   = Phi;
-    Theta_bias = Theta;
+    Phi_bias   = 0;
+    Theta_bias = 0;
     /////////////////////////////////////
   
   }
