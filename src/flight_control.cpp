@@ -454,7 +454,7 @@ void loop_400Hz(void)
 void control_init(void)
 {
   //Acceleration filter
-  acc_filter.set_parameter(0.005, 0.0025);
+  acc_filter.set_parameter(0.008, 0.0025);
 
   //Rate control
   p_pid.set_parameter(P_kp, P_ti, P_td, P_eta, Control_period);//Roll rate control gain
@@ -859,6 +859,7 @@ void sensor_read(void)
 {
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
   float filterd_v;
+  static float dp, dq, dr; 
 
   M5.IMU.getAccelData(&ax, &ay, &az);
   M5.IMU.getGyroData(&gx, &gy, &gz);
@@ -876,14 +877,21 @@ void sensor_read(void)
   Ax = ay;
   Ay = ax;
   Az = az;
+  dp = Wp;
+  dq = Wq;
+  dr = Wr;
   Wp = gy*(float)DEG_TO_RAD;
   Wq = gx*(float)DEG_TO_RAD;
   Wr = gz*(float)DEG_TO_RAD;
 
+  if(Wp>8.0||Wp<-8.0)Wp = dp;
+  if(Wq>8.0||Wq<-8.0)Wq = dq;
+  if(Wr>8.0||Wr<-8.0)Wr = dr;
+
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
   Acc_norm = acc_filter.update(acc_norm);
-  if (Acc_norm>7.5) 
+  if (Acc_norm>5.6) 
   {
     OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
