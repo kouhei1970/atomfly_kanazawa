@@ -454,7 +454,7 @@ void loop_400Hz(void)
 void control_init(void)
 {
   //Acceleration filter
-  acc_filter.set_parameter(0.008, 0.0025);
+  acc_filter.set_parameter(0.005, 0.0025);
 
   //Rate control
   p_pid.set_parameter(P_kp, P_ti, P_td, P_eta, Control_period);//Roll rate control gain
@@ -497,6 +497,10 @@ void get_command(void)
 {
   Control_mode = Stick[CONTROLMODE];
 
+
+  //if(OverG_flag == 1){
+  //  T_ref = 0.0;
+  //}
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
   if (thlo>1.0f) thlo = 1.0f;
@@ -891,7 +895,7 @@ void sensor_read(void)
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
   Acc_norm = acc_filter.update(acc_norm);
-  if (Acc_norm>5.6) 
+  if (Acc_norm>8.5) 
   {
     OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
