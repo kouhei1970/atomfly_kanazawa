@@ -190,7 +190,7 @@ void init_atomfly(void)
   ina3221.begin();
   ina3221.reset();  
   control_init();
-  voltage_filter.set_parameter(0.005, 0.0025);
+  //voltage_filter.set_parameter(0.005, 0.0025);
 
 
   //割り込み設定
@@ -509,8 +509,6 @@ void get_command(void)
   //T_ref = (3.42f*thlo -6.00f*thlo*thlo + 3.58f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
-
-
 
   Phi_com = 0.6*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
@@ -884,7 +882,7 @@ void sensor_read(void)
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
   Acc_norm = acc_filter.update(acc_norm);
-  if (Acc_norm>7.5) 
+  if (Acc_norm>8.5) 
   {
     OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
