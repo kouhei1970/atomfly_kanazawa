@@ -1,1 +1,0 @@
-# atomfly_kanazawa
