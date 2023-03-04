@@ -1,4 +1,4 @@
-//Controller for AtomFly2
+/* Controller for AtomFly2 */
 #include <M5StickCPlus.h>
 #include <WiFi.h>
 #include <esp_now.h>
