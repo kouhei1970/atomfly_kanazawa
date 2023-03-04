@@ -1,4 +1,4 @@
-/* AtomFly2 Flight Control */
+/* AtomFly Flight Control */
 #include <Arduino.h>
 #include <M5Atom.h>
 #include <INA3221.h>
