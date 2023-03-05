@@ -198,8 +198,7 @@ void init_atomfly(void)
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 2500, true);
   timerAlarmEnable(timer);
-  delay(500);
-
+  while(!rc_isconnected());
   //Mode = AVERAGE_MODE;
 }
 
@@ -523,6 +522,10 @@ void get_command(void)
 {
   Control_mode = Stick[CONTROLMODE];
 
+
+  //if(OverG_flag == 1){
+  //  T_ref = 0.0;
+  //}
   //Throttle curve conversion　スロットルカーブ補正
   float thlo = Stick[THROTTLE];
   if (thlo>1.0f) thlo = 1.0f;
@@ -858,6 +861,7 @@ void sensor_read(void)
 {
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
   float filterd_v;
+  static float dp, dq, dr; 
 
   M5.IMU.getAccelData(&ax, &ay, &az);
   M5.IMU.getGyroData(&gx, &gy, &gz);
@@ -875,9 +879,16 @@ void sensor_read(void)
   Ax = ay;
   Ay = ax;
   Az = az;
+  dp = Wp;
+  dq = Wq;
+  dr = Wr;
   Wp = gy*(float)DEG_TO_RAD;
   Wq = gx*(float)DEG_TO_RAD;
   Wr = gz*(float)DEG_TO_RAD;
+
+  if(Wp>8.0||Wp<-8.0)Wp = dp;
+  if(Wq>8.0||Wq<-8.0)Wq = dq;
+  if(Wr>8.0||Wr<-8.0)Wr = dr;
 
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);

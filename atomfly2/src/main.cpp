@@ -7,11 +7,10 @@
 //MPU6886_ADDRESS           0x68
 //BMP280_ADDRESS            0x76
 
-
 void setup() {  
   M5.begin(true, false, true);
   init_atomfly();
-  delay(1000);
+  delay(100);
 }
 
 void loop() {
