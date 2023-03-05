@@ -61,7 +61,7 @@ float r_rand = 180 / PI;
 //Adafruit_BMP280 bme;
 Madgwick Drone_ahrs;
 
-// Set I2C address to 0x41 (A0 pin -> VCC)
+// Set I2C address to 0x40 (A0 pin -> GND)
 INA3221 ina3221(INA3221_ADDR40_GND);
 
 float pressure = 0.0f;
@@ -187,10 +187,10 @@ void init_atomfly(void)
   imu_init();
   //test_rangefinder();
   Drone_ahrs.begin(400.0);
-  ina3221.begin();
+  ina3221.begin(&Wire1);
   ina3221.reset();  
   control_init();
-  voltage_filter.set_parameter(0.005, 0.0025);
+  //voltage_filter.set_parameter(0.005, 0.0025);
 
 
   //割り込み設定
@@ -202,23 +202,48 @@ void init_atomfly(void)
   //Mode = AVERAGE_MODE;
 }
 
+uint8_t init_i2c()
+{
+  //Wire1.begin(25,21);          // join i2c bus (address optional for master)
+  Wire1.begin(25,21,400000UL);
+  Serial.println ("I2C scanner. Scanning ...");
+  byte count = 0;
+  for (short i = 0; i < 256; i++)
+  {
+    Wire1.beginTransmission (i);          // Begin I2C transmission Address (i)
+    if (Wire1.endTransmission () == 0)  // Receive 0 = success (ACK response) 
+    {
+      Serial.print ("Found address: ");
+      Serial.print (i, DEC);
+      Serial.print (" (0x");
+      Serial.print (i, HEX);     // PCF8574 7 bit address
+      Serial.println (")");
+      count++;
+    }
+  }
+  Serial.print ("Found ");      
+  Serial.print (count, DEC);        // numbers of devices
+  Serial.println (" device(s).");
+  return count;
+}
+
 uint8_t mpu6886_byte_read(uint8_t reg_addr)
 {
   uint8_t data;
-  Wire.beginTransmission (MPU6886_ADDRESS);
-  Wire.write(reg_addr);
-  Wire.endTransmission();
-  Wire.requestFrom(MPU6886_ADDRESS, 1);
-  data = Wire.read();
+  Wire1.beginTransmission (MPU6886_ADDRESS);
+  Wire1.write(reg_addr);
+  Wire1.endTransmission();
+  Wire1.requestFrom(MPU6886_ADDRESS, 1);
+  data = Wire1.read();
   return data;
 }
 
 void mpu6886_byte_write(uint8_t reg_addr, uint8_t data)
 {
-  Wire.beginTransmission (MPU6886_ADDRESS);
-  Wire.write(reg_addr);
-  Wire.write(data);
-  Wire.endTransmission();
+  Wire1.beginTransmission (MPU6886_ADDRESS);
+  Wire1.write(reg_addr);
+  Wire1.write(data);
+  Wire1.endTransmission();
 }
 
 
@@ -244,7 +269,7 @@ void imu_init(void)
 
   M5.IMU.Init();
   //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
-  Wire.begin(25,21,400000UL);
+  Wire1.begin(25,21,400000UL);
 
  //F_CHOICE_B
   data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
@@ -513,8 +538,6 @@ void get_command(void)
   //T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
-
-
   Phi_com = 0.6*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
   if (Phi_com> 1.0f)Phi_com =  1.0f;  
@@ -751,31 +774,6 @@ void m5_atom_led(CRGB p, uint8_t state)
   if (state ==1) M5.dis.drawpix(0, p);
   else M5.dis.drawpix(0, 0x000000);
   return;
-}
-
-uint8_t init_i2c()
-{
-  //Wire.begin(25,21);          // join i2c bus (address optional for master)
-  Wire.begin(25,21,400000UL);
-  Serial.println ("I2C scanner. Scanning ...");
-  byte count = 0;
-  for (short i = 0; i < 256; i++)
-  {
-    Wire.beginTransmission (i);          // Begin I2C transmission Address (i)
-    if (Wire.endTransmission () == 0)  // Receive 0 = success (ACK response) 
-    {
-      Serial.print ("Found address: ");
-      Serial.print (i, DEC);
-      Serial.print (" (0x");
-      Serial.print (i, HEX);     // PCF8574 7 bit address
-      Serial.println (")");
-      count++;
-    }
-  }
-  Serial.print ("Found ");      
-  Serial.print (count, DEC);        // numbers of devices
-  Serial.println (" device(s).");
-  return count;
 }
 
 void init_pwm(void)
