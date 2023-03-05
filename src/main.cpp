@@ -14,8 +14,6 @@ void setup() {
   delay(1000);
 }
 
-//float Pitch,Roll,Yaw;
-
 void loop() {
   loop_400Hz();
 }
