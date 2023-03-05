@@ -45,12 +45,12 @@ const float R_td = 0.000f;
 const float R_eta = 0.125f;
 
 //Angle control PID gain
-const float Phi_kp = 18.0f;
+const float Phi_kp = 12.0f;
 const float Phi_ti = 1.0f;
 const float Phi_td = 0.0f;//0.055
 const float Phi_eta = 0.125f;
 
-const float Tht_kp = 18.0f;
+const float Tht_kp = 12.0f;
 const float Tht_ti = 1.0f;
 const float Tht_td = 0.0f;//0.055
 const float Tht_eta = 0.125f;
@@ -893,12 +893,14 @@ void sensor_read(void)
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
   Acc_norm = acc_filter.update(acc_norm);
-  if (Acc_norm>8.5) 
+  if (Acc_norm>9.0) 
   {
     OverG_flag = 1;
     if (Over_g == 0.0)Over_g = acc_norm;
   }
+  #endif
   
+  #if 0
   rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
   if (rate_norm > 800.0)
   {
@@ -906,6 +908,7 @@ void sensor_read(void)
     if (Over_rate == 0.0) Over_rate =rate_norm;
   } 
   #endif
+  
   #if 1
   Voltage = ina3221.getVoltage(INA3221_CH2);
   filterd_v = voltage_filter.update(Voltage);
