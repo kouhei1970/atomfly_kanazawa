@@ -45,12 +45,12 @@ const float R_td = 0.000f;
 const float R_eta = 0.125f;
 
 //Angle control PID gain
-const float Phi_kp = 18.0f;
+const float Phi_kp = 12.0f;
 const float Phi_ti = 1.0f;
 const float Phi_td = 0.0f;//0.055
 const float Phi_eta = 0.125f;
 
-const float Tht_kp = 18.0f;
+const float Tht_kp = 12.0f;
 const float Tht_ti = 1.0f;
 const float Tht_td = 0.0f;//0.055
 const float Tht_eta = 0.125f;
