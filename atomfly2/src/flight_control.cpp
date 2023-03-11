@@ -47,7 +47,7 @@ const float R_eta = 0.125f;
 //Angle control PID gain
 const float Phi_kp = 12.0f;
 const float Phi_ti = 4.0f;
-const float Phi_td = 0.04f;//0.055
+const float Phi_td = 0.04f;
 const float Phi_eta = 0.125f;
 
 const float Tht_kp = 12.0f;
