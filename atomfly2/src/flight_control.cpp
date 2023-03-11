@@ -31,12 +31,12 @@ const float Control_period = 0.0025f;//400Hz
 //Rate control PID gain
 const float P_kp = 0.8f;
 const float P_ti = 0.7f;
-const float P_td = 0.015f;
+const float P_td = 0.03f;
 const float P_eta = 0.125f;
 
 const float Q_kp = 0.8f;
 const float Q_ti = 0.7f;
-const float Q_td = 0.015f;
+const float Q_td = 0.03f;
 const float Q_eta = 0.125f;
 
 const float R_kp = 3.0f;

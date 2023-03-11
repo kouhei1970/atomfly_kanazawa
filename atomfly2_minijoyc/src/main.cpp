@@ -50,7 +50,8 @@ uint8_t disp_counter=0;
 
 //Kouhei AtomFlyのMAC ADDRESS E8:9F:6D:06:D3:A0
 //B MAC ADDRESS E8:9F:6D:07:B4:84
-const uint8_t addr[6] = {0xE8, 0x9F, 0x6D, 0x06, 0xD3, 0xA0};
+//4C:75:25:AE:27:FC
+const uint8_t addr[6] = {0x4C, 0x75, 0x25, 0xAE, 0x27, 0xFC};
 
 
 void rc_init(void);
