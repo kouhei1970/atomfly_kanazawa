@@ -29,12 +29,12 @@ const float Control_period = 0.0025f;//400Hz
 
 //PID Gain
 //Rate control PID gain
-const float P_kp = 0.8f;
+const float P_kp = 0.65f;
 const float P_ti = 0.7f;
 const float P_td = 0.03f;
 const float P_eta = 0.125f;
 
-const float Q_kp = 0.8f;
+const float Q_kp = 0.65f;
 const float Q_ti = 0.7f;
 const float Q_td = 0.03f;
 const float Q_eta = 0.125f;
@@ -51,8 +51,8 @@ const float Phi_td = 0.04f;
 const float Phi_eta = 0.125f;
 
 const float Tht_kp = 12.0f;
-const float Tht_ti = 1.0f;
-const float Tht_td = 0.0f;//0.055
+const float Tht_ti = 4.0f;
+const float Tht_td = 0.04f;
 const float Tht_eta = 0.125f;
 
 //volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
