@@ -149,7 +149,7 @@ Kcopter = 0.033*np.sqrt(W*Ct)*k_m.val/i_y.val
 omega = np.logspace(fmin,fmax,100)
 copter_q=matlab.tf([Kcopter], [t_m.val, 1, 0])
 sensor=matlab.tf([1],[tau_f, 1])
-plant_gain, plant_phase, f = matlab.bode(copter_q*sensor, omega, plot=False)
+plant_gain, plant_phase, f = matlab.bode(matlab.series(copter_q, sensor), omega, plot=False)
 
 #Controller
 Controller=matlab.tf([k_p.val*t_i.val*t_d.val*(1+eta.val), k_p.val*(t_i.val+eta.val*t_d.val), k_p.val],\
@@ -157,7 +157,7 @@ Controller=matlab.tf([k_p.val*t_i.val*t_d.val*(1+eta.val), k_p.val*(t_i.val+eta.
 ctrl_gain, ctrl_phase, f = matlab.bode(Controller, omega, plot=False)
 
 #openloop
-openloop=copter_q*Controller*sensor
+openloop=matlab.series(copter_q, Controller, sensor)
 openloop_gain, openloop_phase, f = matlab.bode(openloop, omega, plot=False)
 gm,pm,pcf,gcf = matlab.margin(openloop)
 ax_gcf.text(0.0,0.2,"GCF(rad/s):%7.3f"%(gcf))
@@ -171,7 +171,8 @@ ax_gm.text(0.0,0.2,"GM(dB):%7.3f"%(gcf))
 #gm_text.set_val("{:6.3f}".format(gm))
 
 #closeloop
-closeloop=matlab.feedback(copter_q*Controller,sensor)
+closeloop=matlab.feedback(matlab.series(copter_q, Controller),sensor)
+print(closeloop)
 closeloop_gain, closeloop_phase, f = matlab.bode(closeloop, omega, plot=False)
 
 #impulse
@@ -215,7 +216,7 @@ ax_closeloop_phase.set_ylim(-270,90)
 ax_closeloop_phase.set_yticks([90, 0,-90,-180,-270])
 
 closeloop_gain_line, = ax_closeloop_gain.plot(f, 20*np.log10(closeloop_gain), lw=2, c='g')
-closeloop_phase_line, =ax_closeloop_phase.plot(f, 360+closeloop_phase*180/np.pi, lw=2, c='g')
+closeloop_phase_line, =ax_closeloop_phase.plot(f, 360+(closeloop_phase*180/np.pi), lw=2, c='g')
 
 
 ax_step.set_xlim(0,0.2)
@@ -375,7 +376,7 @@ def update(slider_val):
     closeloop_gain_line.set_xdata(f)
     closeloop_gain_line.set_ydata(20*np.log10(closeloop_gain))
     closeloop_phase_line.set_xdata(f)
-    closeloop_phase_line.set_ydata(closeloop_phase*180/np.pi)    
+    closeloop_phase_line.set_ydata(360+(closeloop_phase*180/np.pi))    
     
     step_line.set_xdata(step_t)
     step_line.set_ydata(step_y)
