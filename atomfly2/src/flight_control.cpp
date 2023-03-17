@@ -97,8 +97,8 @@ volatile float Phi=0.0f, Theta=0.0f, Psi=0.0f;
 volatile float Phi_ref=0.0f, Theta_ref=0.0f, Psi_ref=0.0f;
 volatile float Elevator_center=0.0f, Aileron_center=0.0f, Rudder_center=0.0f;
 volatile float Pref=0.0f, Qref=0.0f, Rref=0.0f;
-volatile float Phi_trim   =  0.8f*M_PI/180.0f;
-volatile float Theta_trim = -0.2f*M_PI/180.0f;
+volatile float Phi_trim   =  0.8f*PI/180.0f;
+volatile float Theta_trim = -0.2f*PI/180.0f;
 volatile float Psi_trim   =  0.0f;
 
 //Log
@@ -548,7 +548,7 @@ void get_command(void)
   if (Psi_com<-1.0f)Psi_com = -1.0f;
   if (Psi_com> 1.0f)Psi_com =  1.0f;  
   //Yaw control
-  Rref   = 0.8f * M_PI * (Psi_com - Rudder_center);
+  Rref   = 0.8f * PI * (Psi_com - Rudder_center);
 
   if (Control_mode == RATECONTROL)
   {
@@ -750,12 +750,12 @@ void angle_control(void)
     {
       Led_color = RED;
       //Get Roll and Pitch angle ref 
-      Phi_ref   = 0.5f * M_PI * (Phi_com - Aileron_center);
-      Theta_ref = 0.5f * M_PI * (Tht_com - Elevator_center);
-      if (Phi_ref > (30.0f*M_PI/180.0f) ) Phi_ref = 30.0f*M_PI/180.0f;
-      if (Phi_ref <-(30.0f*M_PI/180.0f) ) Phi_ref =-30.0f*M_PI/180.0f;
-      if (Theta_ref > (30.0f*M_PI/180.0f) ) Theta_ref = 30.0f*M_PI/180.0f;
-      if (Theta_ref <-(30.0f*M_PI/180.0f) ) Theta_ref =-30.0f*M_PI/180.0f;
+      Phi_ref   = 0.5f * PI * (Phi_com - Aileron_center);
+      Theta_ref = 0.5f * PI * (Tht_com - Elevator_center);
+      if (Phi_ref > (30.0f*PI/180.0f) ) Phi_ref = 30.0f*PI/180.0f;
+      if (Phi_ref <-(30.0f*PI/180.0f) ) Phi_ref =-30.0f*PI/180.0f;
+      if (Theta_ref > (30.0f*PI/180.0f) ) Theta_ref = 30.0f*PI/180.0f;
+      if (Theta_ref <-(30.0f*PI/180.0f) ) Theta_ref =-30.0f*PI/180.0f;
 
       //Error
       phi_err   = Phi_ref   - (Phi   - Phi_bias );

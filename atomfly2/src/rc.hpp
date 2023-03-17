@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 
 #ifndef RC_HPP
 #define RC_HPP
