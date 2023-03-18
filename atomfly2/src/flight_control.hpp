@@ -26,7 +26,7 @@
 #define LOG_MODE 4
 
 #define POWER_LIMIT 3.05
-#define POWER_FLG_MAX 10
+#define POWER_FLG_MAX 20
 
 #define ANGLECONTROL 0
 #define RATECONTROL 1
