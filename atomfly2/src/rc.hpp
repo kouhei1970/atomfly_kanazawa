@@ -1,8 +1,8 @@
-#include <stdio.h>
-#include <stdint.h>
-
 #ifndef RC_HPP
 #define RC_HPP
+
+#include <stdio.h>
+#include <stdint.h>
 
 #define RUDDER 0
 #define ELEVATOR 1
@@ -29,7 +29,6 @@
 #define LOG_MIN 0
 #define CH6MAX 127
 #define CH6MIN -128
-
 #define BTID "4c:75:25:d5:b2:8e"
 
 void rc_init(void);
@@ -39,6 +38,5 @@ bool rc_isconnected(void);
 void telemetry_send(uint8_t* data, uint16_t datalen);
 
 extern volatile float Stick[16];
-
 
 #endif

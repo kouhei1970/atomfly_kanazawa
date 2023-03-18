@@ -3,12 +3,7 @@
 
 #include <Arduino.h>
 #include <M5Atom.h>
-//#include <INA3221.h>
-//#include <Adafruit_BMP280.h>
 #include <math.h>
-//#include "MadgwickAHRS.h"
-//#include "vl53l0x.h"
-//#include "Adafruit_Sensor.h"
 #include "rc.hpp"
 #include "pid.hpp"
 #include "sensor.hpp"

@@ -5,9 +5,10 @@
 #include "pid.hpp"
 #include <INA3221.h>
 #include <M5Atom.h>
-#include <Adafruit_BMP280.h>
+//#include <Adafruit_BMP280.h>
 #include "MadgwickAHRS.h"
 #include "vl53l0x.h"
+#include <stdint.h>
 //#include "Adafruit_Sensor.h"
 
 typedef struct

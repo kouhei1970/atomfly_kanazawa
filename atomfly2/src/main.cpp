@@ -1,6 +1,5 @@
-//#include <Arduino.h>
-//#include <M5Atom.h>
-#include "rc.hpp"
+#include <Arduino.h>
+#include <M5Atom.h>
 #include "flight_control.hpp"
 
 //VL53L0X_ADDRESS           0x29

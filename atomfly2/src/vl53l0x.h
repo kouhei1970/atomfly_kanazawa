@@ -1,5 +1,5 @@
-//#include <Arduino.h>
-//#include <Wire.h>
+#ifndef VL53L0X_H
+#define VL53L0X_H
 
 #define VL53L0X_REG_IDENTIFICATION_MODEL_ID         0xc0
 #define VL53L0X_REG_IDENTIFICATION_REVISION_ID      0xc2
@@ -89,4 +89,4 @@ uint16_t VL53L0X_decode_vcsel_period(short vcsel_period_reg) {
     uint16_t vcsel_period_pclks = (vcsel_period_reg + 1) << 1;
     return vcsel_period_pclks;
 }
-
+#endif

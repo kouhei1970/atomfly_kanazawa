@@ -19,11 +19,6 @@ uint8_t OverG_flag = 0;
 volatile float Pbias=0.0f, Qbias=0.0f, Rbias=0.0f;
 volatile uint8_t Power_flag = 0;
 
-
-
-
-
-
 uint8_t init_i2c()
 {
   //Wire1.begin(25,21);          // join i2c bus (address optional for master)
@@ -118,9 +113,9 @@ void imu_init(void)
 
 }
 
-
 void test_rangefinder(void)
 {
+  #if 0
   Serial.println("VLX53LOX test started.");
   //Serial.println(F("BMP280 test started...\n"));
 
@@ -157,6 +152,7 @@ void test_rangefinder(void)
   Serial.print("status: ");
   Serial.println(DeviceRangeStatusInternal);
   //End Range finder Test
+  #endif
 }
 
 void sensor_init()
@@ -182,6 +178,7 @@ void sensor_init()
 
 uint16_t get_distance(void)
 {
+  #if 0
   write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
 
   byte val = 0;
@@ -202,6 +199,8 @@ uint16_t get_distance(void)
   uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
   //byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
   return dist;
+  #endif
+  return 0;
 }
 
 void sensor_read(void)
