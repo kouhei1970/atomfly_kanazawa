@@ -1,5 +1,5 @@
-#include <Arduino.h>
-#include <M5Atom.h>
+//#include <Arduino.h>
+//#include <M5Atom.h>
 #include "rc.hpp"
 #include "flight_control.hpp"
 

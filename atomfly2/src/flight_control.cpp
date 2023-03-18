@@ -1,14 +1,5 @@
-#include <Arduino.h>
-#include <M5Atom.h>
-#include <INA3221.h>
-#include <Adafruit_BMP280.h>
-#include <math.h>
-#include "MadgwickAHRS.h"
-#include "vl53l0x.h"
-#include "Adafruit_Sensor.h"
-#include "rc.hpp"
 #include "flight_control.hpp"
-#include "pid.hpp"
+
 
 const int pwmFL = 22;
 const int pwmFR = 19;
@@ -55,24 +46,6 @@ const float Tht_ti = 4.0f;
 const float Tht_td = 0.04f;
 const float Tht_eta = 0.125f;
 
-//volatile float Roll, Pitch, Yaw;  // Stores attitude related variables.
-float r_rand = 180 / PI;
-
-//Adafruit_BMP280 bme;
-Madgwick Drone_ahrs;
-
-// Set I2C address to 0x40 (A0 pin -> GND)
-INA3221 ina3221(INA3221_ADDR40_GND);
-
-float pressure = 0.0f;
-
-//Sensor data
-volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
-volatile float Voltage;
-float Acc_norm=0.0f;
-quat_t Quat;
-float Over_g=0.0f, Over_rate=0.0f;
-
 //Times
 volatile float Elapsed_time=0.0f;
 volatile float Old_Elapsed_time=0.0f;
@@ -93,7 +66,6 @@ volatile float Phi_com=0.0f, Tht_com=0.0f, Psi_com=0.0f;
 volatile float T_ref=0.0f;
 volatile float Pbias=0.0f, Qbias=0.0f, Rbias=0.0f;
 volatile float Phi_bias=0.0f, Theta_bias=0.0f, Psi_bias=0.0f;  
-volatile float Phi=0.0f, Theta=0.0f, Psi=0.0f;
 volatile float Phi_ref=0.0f, Theta_ref=0.0f, Psi_ref=0.0f;
 volatile float Elevator_center=0.0f, Aileron_center=0.0f, Rudder_center=0.0f;
 volatile float Pref=0.0f, Qref=0.0f, Rref=0.0f;
@@ -112,7 +84,6 @@ uint8_t Control_mode = ANGLECONTROL;
 volatile uint8_t LockMode=0;
 float Motor_on_duty_threshold = 0.1f;
 float Angle_control_on_duty_threshold = 0.5f;
-uint8_t OverG_flag = 0;
 uint8_t Flip_flag = 0;
 uint16_t Flip_counter = 0; 
 float Flip_time = 2.0;
@@ -121,7 +92,6 @@ uint8_t BtnA_on_flag = 0;
 uint8_t BtnA_off_flag =1;
 volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
-volatile uint8_t Power_flag = 0;
 CRGB Led_color = 0x000000;
 
 //PID object and etc.
@@ -131,16 +101,14 @@ PID r_pid;
 PID phi_pid;
 PID theta_pid;
 PID psi_pid;
-Filter acc_filter;
-Filter voltage_filter;
 
-uint8_t init_i2c();
+//uint8_t init_i2c();
 void init_pwm();
 void control_init();
 void variable_init(void);
 void gyro_calibration(void);
 void m5_atom_led(CRGB p, uint8_t state);
-void sensor_read(void);
+//void sensor_read(void);
 void get_command(void);
 void angle_control(void);
 void rate_control(void);
@@ -152,14 +120,10 @@ void set_duty_fr(float duty);
 void set_duty_fl(float duty);
 void set_duty_rr(float duty);
 void set_duty_rl(float duty);
-void test_rangefinder(void);
-
+//void test_rangefinder(void);
 void telemetry(void);
 void float2byte(float x, uint8_t* dst);
 void append_data(uint8_t* data , uint8_t* newdata, uint8_t index, uint8_t len);
-void imu_init(void);
-uint8_t mpu6886_byte_read(uint8_t reg_addr);
-void mpu6886_byte_write(uint8_t reg_addr, uint8_t data);
 
 hw_timer_t * timer = NULL;
 void IRAM_ATTR onTimer() 
@@ -169,29 +133,15 @@ void IRAM_ATTR onTimer()
 
 void init_atomfly(void)
 {
-
   Mode = INIT_MODE;
   M5.dis.drawpix(0, WHITE);
   init_pwm();
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
   rc_init();
-  if(init_i2c()==0)
-  {
-    Serial.printf("No I2C device!\r\n");
-    Serial.printf("Can not boot AtomFly2.\r\n");
-    while(1);
-  }
-  //while(!rc_isconnected());
-  
-  imu_init();
-  //test_rangefinder();
-  Drone_ahrs.begin(400.0);
-  ina3221.begin(&Wire1);
-  ina3221.reset();  
+  //while(!rc_isconnected());  
+  sensor_init();
   control_init();
-  //voltage_filter.set_parameter(0.005, 0.0025);
-
 
   //割り込み設定
   timer = timerBegin(0, 80, true);
@@ -200,100 +150,6 @@ void init_atomfly(void)
   timerAlarmEnable(timer);
   while(!rc_isconnected());
   //Mode = AVERAGE_MODE;
-}
-
-uint8_t init_i2c()
-{
-  //Wire1.begin(25,21);          // join i2c bus (address optional for master)
-  Wire1.begin(25,21,400000UL);
-  Serial.println ("I2C scanner. Scanning ...");
-  byte count = 0;
-  for (short i = 0; i < 256; i++)
-  {
-    Wire1.beginTransmission (i);          // Begin I2C transmission Address (i)
-    if (Wire1.endTransmission () == 0)  // Receive 0 = success (ACK response) 
-    {
-      Serial.print ("Found address: ");
-      Serial.print (i, DEC);
-      Serial.print (" (0x");
-      Serial.print (i, HEX);     // PCF8574 7 bit address
-      Serial.println (")");
-      count++;
-    }
-  }
-  Serial.print ("Found ");      
-  Serial.print (count, DEC);        // numbers of devices
-  Serial.println (" device(s).");
-  return count;
-}
-
-uint8_t mpu6886_byte_read(uint8_t reg_addr)
-{
-  uint8_t data;
-  Wire1.beginTransmission (MPU6886_ADDRESS);
-  Wire1.write(reg_addr);
-  Wire1.endTransmission();
-  Wire1.requestFrom(MPU6886_ADDRESS, 1);
-  data = Wire1.read();
-  return data;
-}
-
-void mpu6886_byte_write(uint8_t reg_addr, uint8_t data)
-{
-  Wire1.beginTransmission (MPU6886_ADDRESS);
-  Wire1.write(reg_addr);
-  Wire1.write(data);
-  Wire1.endTransmission();
-}
-
-
-void imu_init(void)
-{
-  //Cutoff frequency
-  //filter_config Gyro Accel
-  //0 250    218.1 log140　Bad
-  //1 176    218.1 log141　Bad
-  //2 92     99.0  log142 Bad これはヨーガカクカクする log256
-  //3 41     44.8  log143 log188　Good! log257
-  //4 20     21.2
-  //5 10     10.2
-  //6 5      5.1
-  //7 3281   420.0
-  uint8_t data;
-  const uint8_t filter_config = 2;//(今の所2はノイズが多くてダメ、log188は3)
-
-  //Mdgwick filter 実験
-  // filter_config=0において実施
-  //beta =0 次第に角度増大（角速度の積分のみに相当する）
-  //beta=0.5
-
-  M5.IMU.Init();
-  //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
-  Wire1.begin(25,21,400000UL);
-
- //F_CHOICE_B
-  data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
-  Serial.printf("GYRO_CONFIG %d\r\n", data);
-  mpu6886_byte_write(MPU6886_GYRO_CONFIG, data & 0b11111100);
-  data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
-  Serial.printf("Update GYRO_CONFIG %d\r\n", data);
-
-  //Gyro
-  //DLPG_CFG
-  data = mpu6886_byte_read(MPU6886_CONFIG);
-  Serial.printf("CONFIG %d\r\n", data);
-  mpu6886_byte_write(MPU6886_CONFIG, (data&0b11111100)|filter_config);
-  data = mpu6886_byte_read(MPU6886_CONFIG);
-  Serial.printf("Update CONFIG %d\r\n", data);
-
-  //Accel
-  //ACCEL_FCHOCE_B & A_DLPF_CFG
-  data = mpu6886_byte_read(MPU6886_ACCEL_CONFIG2);
-  Serial.printf("ACCEL_CONFIG2 %d\r\n", data);
-  mpu6886_byte_write(MPU6886_ACCEL_CONFIG2, (data & 0b11110111) | filter_config);
-  data = mpu6886_byte_read(MPU6886_ACCEL_CONFIG2);
-  Serial.printf("Update ACCEL_CONFIG2 %d\r\n", data);
-
 }
 
 //Main loop
@@ -478,9 +334,6 @@ void loop_400Hz(void)
 
 void control_init(void)
 {
-  //Acceleration filter
-  acc_filter.set_parameter(0.005, 0.0025);
-
   //Rate control
   p_pid.set_parameter(P_kp, P_ti, P_td, P_eta, Control_period);//Roll rate control gain
   q_pid.set_parameter(Q_kp, Q_ti, Q_td, Q_eta, Control_period);//Pitch rate control gain
@@ -491,26 +344,6 @@ void control_init(void)
   //Angle control
   phi_pid.set_parameter  (Phi_kp, Phi_ti, Phi_td, Phi_eta, Control_period);//Roll angle control gain
   theta_pid.set_parameter(Tht_kp, Tht_ti, Tht_td, Tht_eta, Control_period);//Pitch angle control gain
-
-  //phi_pid.set_parameter  ( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);//振動
-  //theta_pid.set_parameter( 10.0f, 7.0f, 0.005f, 0.002f, 0.0025f);
-
-  //phi_pid.set_parameter  ( 12.0, 8.0, 0.005, 0.002, 0.0025);//これも中々良い
-  //theta_pid.set_parameter( 12.0, 8.0, 0.005, 0.002, 0.0025);
-
-  //phi_pid.set_parameter  ( 6.0, 8.0, 0.005, 0.002, 0.0025);//中々良い
-  //theta_pid.set_parameter( 6.0, 8.0, 0.005, 0.002, 0.0025);
-  
-  //phi_pid.set_parameter  ( 6.0, 12.0, 0.005, 0.002, 0.0025);//NG 左右にすーっと動く
-  //theta_pid.set_parameter( 6.0, 12.0, 0.005, 0.002, 0.0025);
-
-  //phi_pid.set_parameter  ( 25.0, 0.4, 0.004, 0.002, 0.0025);//Roll angle control gain
-  //theta_pid.set_parameter( 22.0, 0.4, 0.004, 0.002, 0.0025);//Pitch angle control gain
-  //psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
-  
-  //phi_pid.set_parameter  ( 19.0, 0.2, 0.005, 0.002, 0.0025);//Roll angle control gain
-  //theta_pid.set_parameter( 17.0, 0.2, 0.002, 0.002, 0.0025);//Pitch angle control gain
-  //psi_pid.set_parameter  ( 3.0, 10000, 0.0, 0.030, 0.0025);//Yaw angle control gain
 
 }
 ///////////////////////////////////////////////////////////////////
@@ -574,8 +407,6 @@ void get_command(void)
     BtnA_on_flag = 0;
     BtnA_off_flag = 1;
   }
- 
-
 }
 
 void rate_control(void)
@@ -764,10 +595,14 @@ void angle_control(void)
       //PID
       Pref = phi_pid.update(phi_err);
       Qref = theta_pid.update(theta_err);
-    }
-    
+    } 
   }
 }
+
+void set_duty_fr(float duty){ledcWrite(FR_motor, (uint32_t)(255*duty));}
+void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
+void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
+void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 
 void m5_atom_led(CRGB p, uint8_t state)
 {
@@ -788,145 +623,6 @@ void init_pwm(void)
   ledcAttachPin(pwmRR, RR_motor);
 }
 
-void test_rangefinder(void)
-{
-  Serial.println("VLX53LOX test started.");
-  //Serial.println(F("BMP280 test started...\n"));
-
-  //Begin Range finder Test
-  //Serial.println(read_byte_data_at(VL53L0X_REG_IDENTIFICATION_MODEL_ID));
-  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
-
-  byte val = 0;
-  int cnt  = 0;
-  while (cnt < 100) {  // 1 second waiting time max
-      delay(10);
-      val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
-      if (val & 0x01) break;
-      cnt++;
-  }
-  if (val & 0x01)
-      Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
-  else
-      Serial.println("VL53L0X is not ready");
-
-  read_block_data_at(0x14, 12);
-  uint16_t acnt = makeuint16(gbuf[7], gbuf[6]);
-  uint16_t scnt = makeuint16(gbuf[9], gbuf[8]);
-  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
-  byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
-  Serial.print("ambient count: ");
-  Serial.println(acnt);
-  Serial.print("signal count: ");
-  Serial.println(scnt);
-  Serial.print("ambient count: ");
-  Serial.println(acnt);
-  Serial.print("distance: ");
-  Serial.println(dist);
-  Serial.print("status: ");
-  Serial.println(DeviceRangeStatusInternal);
-  //End Range finder Test
-}
-
-uint16_t get_distance(void)
-{
-  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
-
-  byte val = 0;
-  int cnt  = 0;
-  while (cnt < 1000) {  // 1 second waiting time max
-      val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
-      if (val & 0x01) break;
-      cnt++;
-  }
-  //if (val & 0x01)
-  //    Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
-  //else
-  //    Serial.println("VL53L0X is not ready");
-
-  read_block_data_at(0x14, 12);
-  //uint16_t acnt                  = makeuint16(gbuf[7], gbuf[6]);
-  //uint16_t scnt                  = makeuint16(gbuf[9], gbuf[8]);
-  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
-  //byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
-  return dist;
-}
-
-void set_duty_fr(float duty){ledcWrite(FR_motor, (uint32_t)(255*duty));}
-void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
-void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
-void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
-
-void sensor_read(void)
-{
-  float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
-  float filterd_v;
-  static float dp, dq, dr; 
-
-  M5.IMU.getAccelData(&ax, &ay, &az);
-  M5.IMU.getGyroData(&gx, &gy, &gz);
-  //ax = ax;
-  //ay = ay;
-  if(Mode > AVERAGE_MODE)
-  {
-    Drone_ahrs.updateIMU(gx-Qbias*(float)RAD_TO_DEG, gy-Pbias*(float)RAD_TO_DEG, gz-Rbias*(float)RAD_TO_DEG, ax, ay, az);
-    //Drone_ahrs.updateIMU(gx, gy, gz, ax, ay, az);
-    Theta = Drone_ahrs.getRoll()*(float)DEG_TO_RAD;
-    Phi =   Drone_ahrs.getPitch()*(float)DEG_TO_RAD;
-    Psi =   Drone_ahrs.getYaw()*(float)DEG_TO_RAD;
-  }
-
-  Ax = ay;
-  Ay = ax;
-  Az = az;
-  dp = Wp;
-  dq = Wq;
-  dr = Wr;
-  Wp = gy*(float)DEG_TO_RAD;
-  Wq = gx*(float)DEG_TO_RAD;
-  Wr = gz*(float)DEG_TO_RAD;
-
-  if(Wp>8.0||Wp<-8.0)Wp = dp;
-  if(Wq>8.0||Wq<-8.0)Wq = dq;
-  if(Wr>8.0||Wr<-8.0)Wr = dr;
-
-  #if 1
-  acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
-  Acc_norm = acc_filter.update(acc_norm);
-  if (Acc_norm>9.0) 
-  {
-    OverG_flag = 1;
-    if (Over_g == 0.0)Over_g = acc_norm;
-  }
-  #endif
-  
-  #if 0
-  rate_norm = sqrt((Wp-Pbias)*(Wp-Pbias) + (Wq-Qbias)*(Wq-Qbias) + (Wr-Rbias)*(Wr-Rbias));
-  if (rate_norm > 800.0)
-  {
-    OverG_flag = 0;
-    if (Over_rate == 0.0) Over_rate =rate_norm;
-  } 
-  #endif
-  
-  #if 1
-  Voltage = ina3221.getVoltage(INA3221_CH2);
-  filterd_v = voltage_filter.update(Voltage);
-
-  if(Power_flag != POWER_FLG_MAX){
-    if (filterd_v < POWER_LIMIT) Power_flag ++;
-    else Power_flag = 0;
-    if ( Power_flag > POWER_FLG_MAX) Power_flag = POWER_FLG_MAX;
-  }
-  #endif
-
-  #if 0
-  if(Stick[BUTTON_A]==1)
-  Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f \r\n", 
-    Elapsed_time, Elapsed_time - Old_Elapsed_time ,v1, v2, v3, 
-    (Phi-Phi_bias)*180/PI, (Theta-Theta_bias)*180/PI, (Psi-Psi_bias)*180/PI);
-  #endif
-}
 
 void telemetry(void)
 {

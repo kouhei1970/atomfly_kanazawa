@@ -1,6 +1,19 @@
 #ifndef CONTROL_HPP
 #define CONTROL_HPP
 
+#include <Arduino.h>
+#include <M5Atom.h>
+//#include <INA3221.h>
+//#include <Adafruit_BMP280.h>
+#include <math.h>
+//#include "MadgwickAHRS.h"
+//#include "vl53l0x.h"
+//#include "Adafruit_Sensor.h"
+#include "rc.hpp"
+#include "pid.hpp"
+#include "sensor.hpp"
+
+
 #define BATTERY_VOLTAGE (3.7)
 #define WHITE 0xffffff
 #define BLUE 0x0000ff
@@ -23,20 +36,13 @@
 #define ANGLECONTROL 0
 #define RATECONTROL 1
 
-
-typedef struct
-{
-  float q0;
-  float q1;
-  float q2;
-  float q3;
-} quat_t;
-
 //グローバル関数の宣言
 void init_atomfly(void);
 void loop_400Hz(void);
 
 //グローバル変数
+extern uint8_t Mode;
+
 //extern volatile uint8_t LockMode;
 //extern volatile uint8_t Logoutputflag;
 //extern volatile uint32_t S_time, E_time, D_time, S_time2, E_time2, D_time2;
