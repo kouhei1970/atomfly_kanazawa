@@ -21,7 +21,6 @@ volatile uint8_t Power_flag = 0;
 
 uint8_t init_i2c()
 {
-  //Wire1.begin(25,21);          // join i2c bus (address optional for master)
   Wire1.begin(25,21,400000UL);
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
@@ -115,7 +114,7 @@ void imu_init(void)
 
 void test_rangefinder(void)
 {
-  #if 0
+  #if 1
   Serial.println("VLX53LOX test started.");
   //Serial.println(F("BMP280 test started...\n"));
 
