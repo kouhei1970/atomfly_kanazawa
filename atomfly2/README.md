@@ -57,7 +57,7 @@ git clone https://github.com/kouhei1970/atomfly_kanazawa
 2. 下部のCheck markのアイコンをクリックしてビルドを実行
 3. M5ATOM Liteに書き込む
 
-###＃ 操縦コントローラのファームのビルドと書き込み
+#### 操縦コントローラのファームのビルドと書き込み
 
 1. vscode（PltformIO）を開いて、atomfly2_minijoycプロジェクトを開く
 2. 先ほどファームを書き込んだAtomFly2をPCと接続してシリアルモニタを開く
