@@ -46,16 +46,25 @@ brew install git
 [こちら](https://gitforwindows.org/)からインストーラをダウンロードしてください
 
 ### ビルド
+#### リポジトリのクローン
 適当なディレクトリにて
 ```
 git clone https://github.com/kouhei1970/atomfly_kanazawa
 ```
 
-1. vscode（PltformIO）を開いて、atomfly_kanazawaプロジェクトを開く
+#### AtomFly2のファームのビルドと書き込み
+1. vscode（PltformIO）を開いて、atomfly2プロジェクトを開く
 2. 下部のCheck markのアイコンをクリックしてビルドを実行
+3. M5ATOM Liteに書き込む
 
-### 操縦コントローラ
+###＃ 操縦コントローラのファームのビルドと書き込み
 
-[Controller code](https://github.com/kouhei1970/m5stick_joystick)
+1. vscode（PltformIO）を開いて、atomfly2_minijoycプロジェクトを開く
+2. 先ほどファームを書き込んだAtomFly2をPCと接続してシリアルモニタを開く
+3．　M5ATOM Liteをリセットする
+4.　シリアルモニタにMACアドレスが表示されるのでメモをする
+5. main.cppファイルの５４行目に付近にMACアドレスを指定する部分があるので、先ほどメモしたアドレスに書き換える
+2. 下部のCheck markのアイコンをクリックしてビルドを実行
+3. M5StickC Pulseに書き込む
 
 ![Stick map](new_controller.png)
