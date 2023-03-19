@@ -124,6 +124,8 @@ void set_duty_rl(float duty);
 void telemetry(void);
 void float2byte(float x, uint8_t* dst);
 void append_data(uint8_t* data , uint8_t* newdata, uint8_t index, uint8_t len);
+void data2log(uint8_t* data_list, float add_data, uint8_t index);
+
 
 hw_timer_t * timer = NULL;
 void IRAM_ATTR onTimer() 
@@ -633,9 +635,10 @@ void telemetry(void)
     index=2;
     for (uint8_t i=0;i<(MAXINDEX-2)/4;i++)
     {
-      d_float = 0.0;
-      float2byte(d_float, d_int);
-      append_data(senddata, d_int, index, 4);
+      data2log(senddata, 0.0f, index);
+      //d_float = 0.0;
+      //float2byte(d_float, d_int);
+      //append_data(senddata, d_int, index, 4);
       index = index + 4;
     }
     //Telemetry Header
@@ -643,108 +646,127 @@ void telemetry(void)
     senddata[1]=99;
     index=2;
     //P_kp
-    d_float = P_kp;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, P_kp, index);
+    //d_float = P_kp;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //P_ti
-    d_float = P_ti;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, P_ti, index);
+    //d_float = P_ti;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //P_td
-    d_float = P_td;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, P_td, index);
+    //d_float = P_td;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //P_eta
-    d_float = P_eta;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, P_eta, index);
+    //d_float = P_eta;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
 
     //Q_kp
-    d_float = Q_kp;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Q_kp, index);
+    //d_float = Q_kp;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Q_ti
-    d_float = Q_ti;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Q_ti, index);
+    //d_float = Q_ti;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Q_td
-    d_float = Q_td;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Q_td, index);
+    //d_float = Q_td;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Q_eta
-    d_float = Q_eta;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Q_eta, index);
+    //d_float = Q_eta;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
 
     //R_kp
-    d_float = R_kp;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, R_kp, index);
+    //d_float = R_kp;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //R_ti
-    d_float = R_ti;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, R_ti, index);
+    //d_float = R_ti;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //R_td
-    d_float = R_td;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, R_td, index);
+    //d_float = R_td;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //R_eta
-    d_float = R_eta;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, R_eta, index);
+    //d_float = R_eta;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
 
     //Phi_kp
-    d_float = Phi_kp;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Phi_kp, index);
+    //d_float = Phi_kp;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Phi_ti
-    d_float = Phi_ti;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Phi_ti, index);
+    //d_float = Phi_ti;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Phi_td
-    d_float = Phi_td;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Phi_td, index);
+    //d_float = Phi_td;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Phi_eta
-    d_float = Phi_eta;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Phi_eta, index);
+    //d_float = Phi_eta;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
-
     //Tht_kp
-    d_float = Tht_kp;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Tht_kp, index);
+    //d_float = Tht_kp;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Tht_ti
-    d_float = Tht_ti;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Tht_ti, index);
+    //d_float = Tht_ti;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Tht_td
-    d_float = Tht_td;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Tht_td, index);
+    //d_float = Tht_td;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
     //Tht_eta
-    d_float = Tht_eta;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Tht_eta, index);
+    //d_float = Tht_eta;
+    //float2byte(d_float, d_int);
+    //append_data(senddata, d_int, index, 4);
     index = index + 4;
 
     //Send !
@@ -757,119 +779,73 @@ void telemetry(void)
     senddata[1]=88;
     index = 2;
     //1 Time
-    d_float = Elapsed_time;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Elapsed_time, index);
     index = index + 4;
     //2 delta Time
-    d_float = 1e-6*Dt_time;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, 1e-6*Dt_time, index);
     index = index + 4;
     //3 Phi
-    d_float = (Phi-Phi_bias)*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, (Phi-Phi_bias)*180/PI, index);
     index = index + 4;
     //4 Theta
-    d_float = (Theta-Theta_bias)*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, (Theta-Theta_bias)*180/PI, index);
     index = index + 4;
     //5 Psi
-    d_float = (Psi-Psi_bias)*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, (Psi-Psi_bias)*180/PI, index);
     index = index + 4;
     //6 P
-    d_float = (Wp-Pbias)*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, (Wp-Pbias)*180/PI, index);
     index = index + 4;
     //7 Q
-    d_float = (Wq-Qbias)*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, (Wq-Qbias)*180/PI, index);
     index = index + 4;
     //8 R
-    d_float = (Wr-Rbias)*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, (Wr-Rbias)*180/PI, index);
     index = index + 4;
     //9 Phi_ref
-    d_float = Phi_ref*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Phi_ref*180/PI, index);
     index = index + 4;
     //10 Theta_ref
-    d_float = Theta_ref*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Theta_ref*180/PI, index);
     index = index + 4;
     //11 P ref
-    d_float = Pref*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Pref*180/PI, index);
     index = index + 4;
     //12 Q ref
-    d_float = Qref*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Qref*180/PI, index);
     index = index + 4;
     //13 R ref
-    d_float = Rref*180/PI;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Rref*180/PI, index);
     index = index + 4;
     //14 T ref
-    d_float = T_ref/BATTERY_VOLTAGE;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, T_ref/BATTERY_VOLTAGE, index);
     index = index + 4;
     //15 Voltage
-    d_float = Voltage;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Voltage, index);
     index = index + 4;
     //16 Ax
-    d_float = Ax;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Ax, index);
     index = index + 4;
     //17 Ay
-    d_float = Ay;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Ay, index);
     index = index + 4;
     //18 Az
-    d_float = Az;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Az, index);
     index = index + 4;
     //19 Acc Norm
-    d_float = Acc_norm;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, Acc_norm, index);
     index = index + 4;
     //20 FR_duty
-    d_float = FR_duty;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, FR_duty, index);
     index = index + 4;
     //21 FL_duty
-    d_float = FL_duty;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, FL_duty, index);
     index = index + 4;
     //22 RR_duty
-    d_float = RR_duty;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, RR_duty, index);
     index = index + 4;
     //23 RL_duty
-    d_float = RL_duty;
-    float2byte(d_float, d_int);
-    append_data(senddata, d_int, index, 4);
+    data2log(senddata, RL_duty, index);
     index = index + 4;
 
     //Send !
@@ -877,6 +853,13 @@ void telemetry(void)
   }
 }
 
+void data2log(uint8_t* data_list, float add_data, uint8_t index)
+{
+    uint8_t d_int[4];
+    float d_float = add_data;
+    float2byte(d_float, d_int);
+    append_data(data_list, d_int, index, 4);
+}
 
 void float2byte(float x, uint8_t* dst)
 {
