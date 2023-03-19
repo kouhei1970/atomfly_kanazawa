@@ -30,7 +30,7 @@ const float Q_ti = 0.7f;
 const float Q_td = 0.03f;
 const float Q_eta = 0.125f;
 
-const float R_kp = 3.0f;
+const float R_kp = 1.0f;
 const float R_ti = 0.8f;
 const float R_td = 0.000f;
 const float R_eta = 0.125f;
