@@ -585,7 +585,7 @@ void angle_control(void)
         Pref = Pref - 0.175f*PI;
         T_ref = T_flip*1.2;
       }
-      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+270))
+      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+150))
       {
         if(Ahrs_reset_flag == 0) 
         {
@@ -611,6 +611,11 @@ void angle_control(void)
       //Get Roll and Pitch angle ref 
       Phi_ref   = 0.5f * PI * (Phi_com - Aileron_center);
       Theta_ref = 0.5f * PI * (Tht_com - Elevator_center);
+      if((Flip_counter>0) && (Flip_counter < ((uint16_t)(Flip_time/0.0025f)+250)))
+      {
+        T_ref = T_flip;
+        Flip_counter ++;
+      }
       if (Phi_ref > (30.0f*PI/180.0f) ) Phi_ref = 30.0f*PI/180.0f;
       if (Phi_ref <-(30.0f*PI/180.0f) ) Phi_ref =-30.0f*PI/180.0f;
       if (Theta_ref > (30.0f*PI/180.0f) ) Theta_ref = 30.0f*PI/180.0f;
