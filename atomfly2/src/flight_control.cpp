@@ -557,6 +557,7 @@ void angle_control(void)
         Pref = 0;
         T_flip = T_ref;
         Ahrs_reset_flag = 0;
+        Flip_counter = 0;
       }
 
       //PID Reset
@@ -572,19 +573,19 @@ void angle_control(void)
       else if (Flip_counter < (uint16_t)(Flip_time/0.0025f/2.0f))
       {
         Pref = Pref + 0.175f*PI;
-        T_ref = T_flip*0.5;
+        T_ref = T_flip*1.0;
       }
       else if (Flip_counter < (uint16_t)(3.0f*Flip_time/0.0025f/4.0f))
       {
         Pref = Pref - 0.175f*PI;
-        T_ref = T_flip*0.5;
+        T_ref = T_flip*1.0;
       }
       else if (Flip_counter < (uint16_t)(Flip_time/0.0025f))
       {
         Pref = Pref - 0.175f*PI;
         T_ref = T_flip*1.2;
       }
-      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+400))
+      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+270))
       {
         if(Ahrs_reset_flag == 0) 
         {

@@ -19,6 +19,15 @@ esp_now_peer_info_t peerInfo;
 //RC
 volatile float Stick[16];
 
+// 送信コールバック　関数です。ここでは、MACアドレスのみ設定して、メッセージは loop 内で書きます。
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]); // デフォルト　FFみたい。
+}
+
+
 // 受信コールバック
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len) 
 {
@@ -93,7 +102,9 @@ void rc_init(void)
   }
 
   // ESP-NOWコールバック登録
+  //esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
+
   Serial.println("ESP-NOW Ready.");
   Serial.println("Wait Contoroller ready....");
   //while(Connect_flag==0);
