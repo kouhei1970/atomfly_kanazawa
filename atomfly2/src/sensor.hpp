@@ -33,5 +33,6 @@ extern volatile uint8_t Power_flag;
 
 void sensor_init(void);
 void sensor_read(void);
+void ahrs_reset(void);
 
 #endif

@@ -202,6 +202,12 @@ uint16_t get_distance(void)
   return 0;
 }
 
+void ahrs_reset(void)
+{
+  Drone_ahrs.reset();
+}
+
+
 void sensor_read(void)
 {
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
@@ -231,9 +237,9 @@ void sensor_read(void)
   Wq = gx*(float)DEG_TO_RAD;
   Wr = gz*(float)DEG_TO_RAD;
 
-  if(Wp>8.0||Wp<-8.0)Wp = dp;
-  if(Wq>8.0||Wq<-8.0)Wq = dq;
-  if(Wr>8.0||Wr<-8.0)Wr = dr;
+  //if(Wp>8.0||Wp<-8.0)Wp = dp;
+  //if(Wq>8.0||Wq<-8.0)Wq = dq;
+  //if(Wr>8.0||Wr<-8.0)Wr = dr;
 
   #if 1
   acc_norm = sqrt(Ax*Ax + Ay*Ay + Az*Az);
@@ -265,6 +271,7 @@ void sensor_read(void)
   }
   #endif
 
+  
   #if 0
   if(Stick[BUTTON_A]==1)
   Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f \r\n", 

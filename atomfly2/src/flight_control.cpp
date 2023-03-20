@@ -64,6 +64,7 @@ volatile float FR_duty=0.0f, FL_duty=0.0f, RR_duty=0.0f, RL_duty=0.0f;
 volatile float P_com=0.0f, Q_com=0.0f, R_com=0.0f;
 volatile float Phi_com=0.0f, Tht_com=0.0f, Psi_com=0.0f;
 volatile float T_ref=0.0f;
+volatile float T_flip=0.0f;
 //volatile float Pbias=0.0f, Qbias=0.0f, Rbias=0.0f;
 volatile float Phi_bias=0.0f, Theta_bias=0.0f, Psi_bias=0.0f;  
 volatile float Phi_ref=0.0f, Theta_ref=0.0f, Psi_ref=0.0f;
@@ -93,6 +94,7 @@ uint8_t BtnA_off_flag =1;
 volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
 CRGB Led_color = 0x000000;
+volatile uint8_t Ahrs_reset_flag=0;
 
 //PID object and etc.
 PID p_pid;
@@ -255,6 +257,11 @@ void loop_400Hz(void)
   else if(Mode == STAY_MODE)
   {
     motor_stop();
+    if(Ahrs_reset_flag==0)
+    {
+      ahrs_reset();
+      Ahrs_reset_flag = 1;
+    }
     //Befor takeoff Voltage Low Check
     if(Voltage<3.7)
     {
@@ -290,6 +297,7 @@ void loop_400Hz(void)
       {
         LockMode=2;//Enable Flight
         Mode=FLIGHT_MODE;
+        Ahrs_reset_flag = 0;
       }
       return;
     }
@@ -386,22 +394,12 @@ void get_command(void)
   }
 
   // A button
-  if (Stick[BUTTON_A]==1) BtnA_counter ++;
-  else BtnA_counter --;
+  if ((Stick[BUTTON_A]==1) && (Flip_flag==0)) BtnA_counter ++;
+  else BtnA_counter = 0;
   if (BtnA_counter>20)
   {
-    BtnA_counter=20;
-    if(BtnA_off_flag==1)
-    {
-      BtnA_on_flag = 1;
-      BtnA_off_flag = 0;
-    }
-  }
-  if (BtnA_counter<-20)
-  {
-    BtnA_counter=-20;
-    BtnA_on_flag = 0;
-    BtnA_off_flag = 1;
+    BtnA_counter = 20;
+    BtnA_on_flag = 1;
   }
 }
 
@@ -547,26 +545,59 @@ void angle_control(void)
   {
     
     //Flip
-    if (0)// (BtnA_on_flag == 1) || (Flip_flag == 1))
+    if ((BtnA_on_flag == 1) || (Flip_flag == 1))
     { 
-      #if 0
+      #if 1
       Led_color = 0xFF9933;
 
       BtnA_on_flag = 0;
-      Flip_flag = 1;
+      if(Flip_flag==0)
+      {
+        Flip_flag = 1;
+        Pref = 0;
+        T_flip = T_ref;
+        Ahrs_reset_flag = 0;
+      }
 
       //PID Reset
       phi_pid.reset();
       theta_pid.reset();
-    
-      Flip_time = 0.26;
-      Pref = 2.0*PI/Flip_time;
+      Flip_time = 0.36;
       Qref = 0.0;
-      if (Flip_counter > (uint16_t)(Flip_time/0.0025) )
+      if (Flip_counter < (uint16_t)(Flip_time/0.0025f/4.0f) )
       {
-        Flip_counter = (uint16_t)(Flip_time/0.0025);
+        Pref = Pref + 0.175*PI;
+        T_ref = T_flip*1.0;
+      }
+      else if (Flip_counter < (uint16_t)(Flip_time/0.0025f/2.0f))
+      {
+        Pref = Pref + 0.175f*PI;
+        T_ref = T_flip*0.5;
+      }
+      else if (Flip_counter < (uint16_t)(3.0f*Flip_time/0.0025f/4.0f))
+      {
+        Pref = Pref - 0.175f*PI;
+        T_ref = T_flip*0.5;
+      }
+      else if (Flip_counter < (uint16_t)(Flip_time/0.0025f))
+      {
+        Pref = Pref - 0.175f*PI;
+        T_ref = T_flip*1.2;
+      }
+      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+400))
+      {
+        if(Ahrs_reset_flag == 0) 
+        {
+          Ahrs_reset_flag = 1;
+          ahrs_reset();
+        }
+        Pref = 0.0;
+        T_ref=T_flip*1.2;
+      }
+      else
+      {
         Flip_flag = 0;
-        Flip_counter = 0;
+        Ahrs_reset_flag = 0;
       }
       Flip_counter++;
       #endif  
