@@ -585,7 +585,7 @@ void angle_control(void)
         Pref = Pref - 0.175f*PI;
         T_ref = T_flip*1.2;
       }
-      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+150))
+      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+200))
       {
         if(Ahrs_reset_flag == 0) 
         {
