@@ -570,7 +570,7 @@ void angle_control(void)
       //Flip
       Flip_time = 0.36;
       Qref = 0.0;
-      domega = 0.173f;
+      domega = 0.174f;
       flip_delay = 250;
       flip_step = Flip_time/0.0025f;
       if (Flip_counter < flip_delay)
