@@ -32,7 +32,7 @@ private:
     float roll;
     float pitch;
     float yaw;
-    float betaDef = 0.5f;
+    float betaDef = 0.1f;
     char anglesComputed;
     void computeAngles();
 

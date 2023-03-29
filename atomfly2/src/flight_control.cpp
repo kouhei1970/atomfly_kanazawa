@@ -304,7 +304,7 @@ void loop_400Hz(void)
   }
 
   //Telemetry
-  if (Telem_cnt == 0)telemetry();
+  //if (Telem_cnt == 0)telemetry();
   Telem_cnt++;
   if (Telem_cnt>10-1)Telem_cnt = 0;
 
@@ -510,6 +510,9 @@ void angle_control(void)
 {
   float phi_err,theta_err;
   static uint8_t cnt=0;
+  float domega;
+  uint16_t flip_delay = 150; 
+  float flip_step;
   static float timeval=0.0f;
 
   if (Control_mode == RATECONTROL) return;
@@ -563,29 +566,39 @@ void angle_control(void)
       //PID Reset
       phi_pid.reset();
       theta_pid.reset();
+    
+      //Flip
       Flip_time = 0.36;
       Qref = 0.0;
-      if (Flip_counter < (uint16_t)(Flip_time/0.0025f/4.0f) )
+      domega = 0.173f;
+      flip_delay = 250;
+      flip_step = Flip_time/0.0025f;
+      if (Flip_counter < flip_delay)
       {
-        Pref = Pref + 0.175*PI;
-        T_ref = T_flip*1.0;
-      }
-      else if (Flip_counter < (uint16_t)(Flip_time/0.0025f/2.0f))
-      {
-        Pref = Pref + 0.175f*PI;
-        T_ref = T_flip*1.0;
-      }
-      else if (Flip_counter < (uint16_t)(3.0f*Flip_time/0.0025f/4.0f))
-      {
-        Pref = Pref - 0.175f*PI;
-        T_ref = T_flip*1.0;
-      }
-      else if (Flip_counter < (uint16_t)(Flip_time/0.0025f))
-      {
-        Pref = Pref - 0.175f*PI;
+        Pref = 0.0f;
         T_ref = T_flip*1.2;
       }
-      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f)+200))
+      else if (Flip_counter < (uint16_t)(flip_step/4.0f + flip_delay))
+      {
+        Pref = Pref + domega*PI;
+        T_ref = T_flip*1.05;
+      }
+      else if (Flip_counter < (uint16_t)(flip_step/2.0f + flip_delay))
+      {
+        Pref = Pref + domega*PI;
+        T_ref = T_flip*1.05;
+      }
+      else if (Flip_counter < (uint16_t)(3.0f*flip_step/4.0f + flip_delay))
+      {
+        Pref = Pref - domega*PI;
+        T_ref = T_flip*1.05;
+      }
+      else if (Flip_counter < (uint16_t)(flip_step + flip_delay))
+      {
+        Pref = Pref - domega*PI;
+        T_ref = T_flip*1.2;
+      }
+      else if(Flip_counter < ((uint16_t)(Flip_time/0.0025f + flip_delay)+100))
       {
         if(Ahrs_reset_flag == 0) 
         {
