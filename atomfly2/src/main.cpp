@@ -6,7 +6,9 @@
 //BMP280_ADDRESS            0x76
 
 void setup() {
-  M5.begin(true, true , false, true);
+  //M5.begin(true, true , false, false);
+  M5.begin();
+
   init_atomfly();
   delay(100);
 }

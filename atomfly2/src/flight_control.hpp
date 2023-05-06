@@ -2,7 +2,7 @@
 #define CONTROL_HPP
 
 #include <M5AtomS3.h>
-#include <FastLED.h>
+//#include <FastLED.h>
 #include <math.h>
 #include "rc.hpp"
 #include "pid.hpp"

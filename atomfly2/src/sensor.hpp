@@ -11,8 +11,8 @@
 #include <stdint.h>
 //#include "Adafruit_Sensor.h"
 
-#define I2C_SCL 21
-#define I2C_SDA 25
+#define I2C_SCL 39
+#define I2C_SDA 38
 #define MPU6886_ADDRESS 0x68
 #define MPU6886_ADDRESS           0x68 
 #define MPU6886_WHOAMI            0x75

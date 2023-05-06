@@ -6,7 +6,7 @@ const int pwmFR = 6;//S3:6 Lite:19;
 const int pwmRL = 7;//S3 7 Lite:23;
 const int pwmRR = 8;//S3:8 Lite:33;
 
-const int freq = 300000;
+const int freq = 100000;
 const int FL_motor = 1;
 const int FR_motor = 2;
 const int RL_motor = 3;
@@ -138,13 +138,19 @@ void IRAM_ATTR onTimer()
 void init_atomfly(void)
 {
   Mode = INIT_MODE;
-  M5.dis.drawpix(WHITE);
+  //M5.dis.drawpix(WHITE);
+  
   init_pwm();
+  
   Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8O1, 26, 32);
+  
+  //Serial2.begin(115200, SERIAL_8O1, 26, 32);
+  
   rc_init();
+ 
   //while(!rc_isconnected());  
   sensor_init();
+ #if 0
   control_init();
 
   //割り込み設定
@@ -154,6 +160,7 @@ void init_atomfly(void)
   timerAlarmEnable(timer);
   while(!rc_isconnected());
   //Mode = AVERAGE_MODE;
+  #endif
 }
 
 //Main loop
@@ -195,7 +202,7 @@ void loop_400Hz(void)
     if (BiasCounter < AVERAGENUM)
     {
       //Sensor Read
-      M5.dis.drawpix(PERPLE);
+      //M5.dis.drawpix(PERPLE);
       //sensor_read();
       Pbias += Wp;
       Qbias += Wq;
@@ -639,8 +646,8 @@ void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 
 void m5_atom_led(CRGB p, uint8_t state)
 {
-  if (state ==1) M5.dis.drawpix(p);
-  else M5.dis.drawpix(0x000000);
+  //if (state ==1) M5.dis.drawpix(p);
+  //else M5.dis.drawpix(0x000000);
   return;
 }
 
