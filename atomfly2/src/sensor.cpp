@@ -11,6 +11,7 @@ Filter voltage_filter;
 //Sensor data
 volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 volatile float Phi=0.0f, Theta=0.0f, Psi=0.0f;
+volatile float Altitude = 0.0f;
 volatile float Voltage;
 float Acc_norm=0.0f;
 //quat_t Quat;
@@ -21,7 +22,7 @@ volatile uint8_t Power_flag = 0;
 
 uint8_t init_i2c()
 {
-  Wire1.begin(25,21,400000UL);
+  Wire1.begin(I2C_SDA, I2C_SCL, 400000UL);
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
   for (short i = 0; i < 256; i++)
@@ -85,7 +86,7 @@ void imu_init(void)
 
   M5.IMU.Init();
   //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
-  Wire1.begin(25,21,400000UL);
+  Wire1.begin(I2C_SDA, I2C_SCL, 400000UL);
 
  //F_CHOICE_B
   data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
@@ -116,7 +117,6 @@ void test_rangefinder(void)
 {
   #if 1
   Serial.println("VLX53LOX test started.");
-  //Serial.println(F("BMP280 test started...\n"));
 
   //Begin Range finder Test
   //Serial.println(read_byte_data_at(VL53L0X_REG_IDENTIFICATION_MODEL_ID));
@@ -164,7 +164,7 @@ void sensor_init()
   }
 
   imu_init();
-  //test_rangefinder();
+  test_rangefinder();
   Drone_ahrs.begin(400.0);
   ina3221.begin(&Wire1);
   ina3221.reset();  
@@ -174,19 +174,32 @@ void sensor_init()
 
 }
 
-
-uint16_t get_distance(void)
+void start_mesure_distance(void)
 {
-  #if 0
   write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+}
 
+uint8_t get_range_status(void)
+{
   byte val = 0;
-  int cnt  = 0;
-  while (cnt < 1000) {  // 1 second waiting time max
-      val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
-      if (val & 0x01) break;
-      cnt++;
-  }
+  val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
+  if (val & 0x01) return 1;
+  else return 0;
+}
+
+distance_t get_distance(void)
+{
+  distance_t dist;
+  #if 1
+  //write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+
+  //byte val = 0;
+  dist.cnt  = 0;
+  //while (dist.cnt < 1000) {
+  //    val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
+  //    if (val & 0x01) break;
+  //    dist.cnt++;
+  //}
   //if (val & 0x01)
   //    Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
   //else
@@ -195,11 +208,10 @@ uint16_t get_distance(void)
   read_block_data_at(0x14, 12);
   //uint16_t acnt                  = makeuint16(gbuf[7], gbuf[6]);
   //uint16_t scnt                  = makeuint16(gbuf[9], gbuf[8]);
-  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
+  dist.distance = makeuint16(gbuf[11], gbuf[10]);
   //byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
   return dist;
   #endif
-  return 0;
 }
 
 void ahrs_reset(void)
@@ -213,6 +225,26 @@ void sensor_read(void)
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
   float filterd_v;
   static float dp, dq, dr; 
+  static uint16_t dcnt=0u;
+  distance_t dist;
+
+  //Get Altitude (20Hz)
+  if (dcnt==0)
+  {
+    start_mesure_distance();
+    dcnt = 1u;
+  }
+  else if (dcnt>20)
+  {
+    dcnt++;
+    if(get_range_status()==1)
+    {
+      dist = get_distance();
+      Altitude = dist.distance;
+      dcnt=0u;
+    }
+  }
+  else dcnt++;
 
   M5.IMU.getAccelData(&ax, &ay, &az);
   M5.IMU.getGyroData(&gx, &gy, &gz);

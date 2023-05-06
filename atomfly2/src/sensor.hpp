@@ -5,11 +5,13 @@
 #include "pid.hpp"
 #include <INA3221.h>
 #include <M5Atom.h>
-//#include <Adafruit_BMP280.h>
 #include "MadgwickAHRS.h"
 #include "vl53l0x.hpp"
 #include <stdint.h>
-//#include "Adafruit_Sensor.h"
+
+#define I2C_SCL 21
+#define I2C_SDA 25
+
 
 typedef struct
 {
@@ -19,10 +21,16 @@ typedef struct
   float q3;
 } quat_t;
 
+typedef struct
+{
+  uint16_t distance;
+  uint16_t cnt;  
+} distance_t;
+
 //Sensor data
 extern volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 extern volatile float Phi, Theta, Psi;
-
+extern volatile float Altitude;
 extern volatile float Voltage;
 extern float Acc_norm;
 extern quat_t Quat;

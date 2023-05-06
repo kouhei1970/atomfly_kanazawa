@@ -1,6 +1,5 @@
 #include "flight_control.hpp"
 
-
 const int pwmFL = 22;
 const int pwmFR = 19;
 const int pwmRL = 23;
@@ -108,9 +107,7 @@ PID psi_pid;
 void init_pwm();
 void control_init();
 void variable_init(void);
-//void gyro_calibration(void);
 void m5_atom_led(CRGB p, uint8_t state);
-//void sensor_read(void);
 void get_command(void);
 void angle_control(void);
 void rate_control(void);
@@ -122,7 +119,6 @@ void set_duty_fr(float duty);
 void set_duty_fl(float duty);
 void set_duty_rr(float duty);
 void set_duty_rl(float duty);
-//void test_rangefinder(void);
 void telemetry(void);
 void float2byte(float x, uint8_t* dst);
 void append_data(uint8_t* data , uint8_t* newdata, uint8_t index, uint8_t len);
@@ -141,7 +137,7 @@ void init_atomfly(void)
   M5.dis.drawpix(0, WHITE);
   init_pwm();
   Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8O1, 26, 32);
+  //Serial2.begin(115200, SERIAL_8O1, 26, 32);
   rc_init();
   //while(!rc_isconnected());  
   sensor_init();
@@ -673,7 +669,7 @@ void init_pwm(void)
 void telemetry(void)
 {
   //Telemetry
-  const uint8_t MAXINDEX=94;
+  const uint8_t MAXINDEX=98;
   float d_float;
   uint8_t d_int[4];
   uint8_t senddata[MAXINDEX]; 
@@ -896,6 +892,9 @@ void telemetry(void)
     index = index + 4;
     //23 RL_duty
     data2log(senddata, RL_duty, index);
+    index = index + 4;
+    //24 Altitude
+    data2log(senddata, Altitude, index);
     index = index + 4;
 
     //Send !
