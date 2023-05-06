@@ -214,8 +214,8 @@ void sensor_read(void)
   float filterd_v;
   static float dp, dq, dr; 
 
-  M5.IMU.getAccelData(&ax, &ay, &az);
-  M5.IMU.getGyroData(&gx, &gy, &gz);
+  M5.IMU.getAccel(&ax, &ay, &az);
+  M5.IMU.getGyro(&gx, &gy, &gz);
   //ax = ax;
   //ay = ay;
   if(Mode > AVERAGE_MODE)
