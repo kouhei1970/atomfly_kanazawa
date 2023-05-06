@@ -149,7 +149,7 @@ void init_atomfly(void)
 
   //割り込み設定
   timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &onTimer, true);
+  timerAttachInterrupt(timer, &onTimer, true); 
   timerAlarmWrite(timer, 2500, true);
   timerAlarmEnable(timer);
   while(!rc_isconnected());
@@ -304,7 +304,7 @@ void loop_400Hz(void)
   }
 
   //Telemetry
-  //if (Telem_cnt == 0)telemetry();
+  if (Telem_cnt == 0)telemetry();
   Telem_cnt++;
   if (Telem_cnt>10-1)Telem_cnt = 0;
 
