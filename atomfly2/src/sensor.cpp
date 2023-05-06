@@ -21,7 +21,7 @@ volatile uint8_t Power_flag = 0;
 
 uint8_t init_i2c()
 {
-  Wire1.begin(25,21,400000UL);
+  Wire1.begin(I2C_SDA,I2C_SCL,400000UL);
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
   for (short i = 0; i < 256; i++)
@@ -83,9 +83,9 @@ void imu_init(void)
   //beta =0 次第に角度増大（角速度の積分のみに相当する）
   //beta=0.5
 
-  M5.IMU.Init();
+  M5.IMU.begin();
   //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
-  Wire1.begin(25,21,400000UL);
+  Wire1.begin(I2C_SDA, I2C_SCL, 400000UL);
 
  //F_CHOICE_B
   data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);

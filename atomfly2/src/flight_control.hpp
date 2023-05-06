@@ -1,8 +1,8 @@
 #ifndef CONTROL_HPP
 #define CONTROL_HPP
 
-#include <Arduino.h>
-#include <M5Atom.h>
+#include <M5AtomS3.h>
+#include <FastLED.h>
 #include <math.h>
 #include "rc.hpp"
 #include "pid.hpp"

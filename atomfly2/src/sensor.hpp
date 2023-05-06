@@ -1,15 +1,19 @@
 #ifndef SENSOR_HPP
 #define SENSOR_HPP
 
+#include <M5AtomS3.h>
 #include "flight_control.hpp"
 #include "pid.hpp"
 #include <INA3221.h>
-#include <M5Atom.h>
 //#include <Adafruit_BMP280.h>
 #include "MadgwickAHRS.h"
 #include "vl53l0x.hpp"
 #include <stdint.h>
 //#include "Adafruit_Sensor.h"
+
+#define I2C_SCL 21
+#define I2C_SDA 25
+#define MPU6886_ADDRESS 0x68
 
 typedef struct
 {

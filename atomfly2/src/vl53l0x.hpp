@@ -2,8 +2,7 @@
 #define VL53L0X_HPP
 
 #include <stdint.h>
-#include <M5Atom.h>
-
+#include <M5AtomS3.h>
 
 #define VL53L0X_REG_IDENTIFICATION_MODEL_ID         0xc0
 #define VL53L0X_REG_IDENTIFICATION_REVISION_ID      0xc2
