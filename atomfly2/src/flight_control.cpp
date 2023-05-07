@@ -355,7 +355,6 @@ void get_command(void)
 {
   Control_mode = Stick[CONTROLMODE];
 
-
   //if(OverG_flag == 1){
   //  T_ref = 0.0;
   //}
@@ -369,7 +368,8 @@ void get_command(void)
   //T_ref = (3.46f*thlo -5.74f*thlo*thlo + 3.23f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (3.42f*thlo -6.00f*thlo*thlo + 3.58f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
-  T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  //T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+  T_ref = 0.69;
 
   Phi_com = 0.6*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
@@ -669,7 +669,7 @@ void init_pwm(void)
 void telemetry(void)
 {
   //Telemetry
-  const uint8_t MAXINDEX=98;
+  const uint8_t MAXINDEX=102;
   float d_float;
   uint8_t d_int[4];
   uint8_t senddata[MAXINDEX]; 
@@ -895,6 +895,9 @@ void telemetry(void)
     index = index + 4;
     //24 Altitude
     data2log(senddata, Altitude, index);
+    index = index + 4;
+    //25 Altitude2
+    data2log(senddata, Altitude2, index);
     index = index + 4;
 
     //Send !
