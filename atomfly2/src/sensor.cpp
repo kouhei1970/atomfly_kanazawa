@@ -7,6 +7,7 @@ Madgwick Drone_ahrs;
 INA3221 ina3221(INA3221_ADDR40_GND);
 Filter acc_filter;
 Filter voltage_filter;
+Adafruit_VL53L0X tof = Adafruit_VL53L0X();
 
 //Sensor data
 volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
@@ -115,43 +116,6 @@ void imu_init(void)
 
 void test_rangefinder(void)
 {
-  #if 1
-  Serial.println("VLX53LOX test started.");
-
-  //Begin Range finder Test
-  //Serial.println(read_byte_data_at(VL53L0X_REG_IDENTIFICATION_MODEL_ID));
-  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
-
-  byte val = 0;
-  int cnt  = 0;
-  while (cnt < 100) {  // 1 second waiting time max
-      delay(10);
-      val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
-      if (val & 0x01) break;
-      cnt++;
-  }
-  if (val & 0x01)
-      Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
-  else
-      Serial.println("VL53L0X is not ready");
-
-  read_block_data_at(0x14, 12);
-  uint16_t acnt = makeuint16(gbuf[7], gbuf[6]);
-  uint16_t scnt = makeuint16(gbuf[9], gbuf[8]);
-  uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
-  byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
-  Serial.print("ambient count: ");
-  Serial.println(acnt);
-  Serial.print("signal count: ");
-  Serial.println(scnt);
-  Serial.print("ambient count: ");
-  Serial.println(acnt);
-  Serial.print("distance: ");
-  Serial.println(dist);
-  Serial.print("status: ");
-  Serial.println(DeviceRangeStatusInternal);
-  //End Range finder Test
-  #endif
 }
 
 void sensor_init()
@@ -164,7 +128,8 @@ void sensor_init()
   }
 
   imu_init();
-  test_rangefinder();
+  tof_init();
+  //test_rangefinder();
   Drone_ahrs.begin(400.0);
   ina3221.begin(&Wire1);
   ina3221.reset();  
@@ -174,44 +139,29 @@ void sensor_init()
 
 }
 
+void tof_init(void)
+{
+    tof.begin(0x29, false, &Wire1);
+    tof.setDeviceMode(VL53L0X_DEVICEMODE_SINGLE_RANGING);
+    tof.setMeasurementTimingBudgetMicroSeconds(33000);
+    tof.startMeasurement();
+    while(tof.isRangeComplete()==0);
+    Serial.printf("Distance=%d\n", tof.readRangeResult());
+}
+
 void start_mesure_distance(void)
 {
-  write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
+  tof.startMeasurement();
 }
 
-uint8_t get_range_status(void)
+uint8_t is_finish_ranging(void)
 {
-  byte val = 0;
-  val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
-  if (val & 0x01) return 1;
-  else return 0;
+  return tof.isRangeComplete();
 }
 
-distance_t get_distance(void)
+uint16_t get_distance(void)
 {
-  distance_t dist;
-  #if 1
-  //write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
-
-  //byte val = 0;
-  dist.cnt  = 0;
-  //while (dist.cnt < 1000) {
-  //    val = read_byte_data_at(VL53L0X_REG_RESULT_RANGE_STATUS);
-  //    if (val & 0x01) break;
-  //    dist.cnt++;
-  //}
-  //if (val & 0x01)
-  //    Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
-  //else
-  //    Serial.println("VL53L0X is not ready");
-
-  read_block_data_at(0x14, 12);
-  //uint16_t acnt                  = makeuint16(gbuf[7], gbuf[6]);
-  //uint16_t scnt                  = makeuint16(gbuf[9], gbuf[8]);
-  dist.distance = makeuint16(gbuf[11], gbuf[10]);
-  //byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
-  return dist;
-  #endif
+  return  tof.readRangeResult();
 }
 
 void ahrs_reset(void)
@@ -219,14 +169,13 @@ void ahrs_reset(void)
   Drone_ahrs.reset();
 }
 
-
 void sensor_read(void)
 {
   float ax, ay, az, gx, gy, gz, acc_norm, rate_norm;
   float filterd_v;
   static float dp, dq, dr; 
   static uint16_t dcnt=0u;
-  distance_t dist;
+  uint16_t dist;
 
   //Get Altitude (20Hz)
   if (dcnt==0)
@@ -234,13 +183,13 @@ void sensor_read(void)
     start_mesure_distance();
     dcnt = 1u;
   }
-  else if (dcnt>20)
+  else if (dcnt>14)
   {
     dcnt++;
-    if(get_range_status()==1)
+    if(is_finish_ranging())
     {
       dist = get_distance();
-      Altitude = dist.distance;
+      Altitude = dist;
       dcnt=0u;
     }
   }

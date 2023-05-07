@@ -6,7 +6,7 @@
 #include <INA3221.h>
 #include <M5Atom.h>
 #include "MadgwickAHRS.h"
-#include "vl53l0x.hpp"
+#include <Adafruit_VL53L0X.h>
 #include <stdint.h>
 
 #define I2C_SCL 21
@@ -42,5 +42,6 @@ extern volatile uint8_t Power_flag;
 void sensor_init(void);
 void sensor_read(void);
 void ahrs_reset(void);
+void tof_init(void);
 
 #endif
