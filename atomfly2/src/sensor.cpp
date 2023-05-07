@@ -13,6 +13,8 @@ Adafruit_VL53L0X tof = Adafruit_VL53L0X();
 volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 volatile float Phi=0.0f, Theta=0.0f, Psi=0.0f;
 volatile float Altitude = 0.0f;
+volatile float Altitude2 = 0.0f;
+
 volatile float Voltage;
 float Acc_norm=0.0f;
 //quat_t Quat;
@@ -259,5 +261,51 @@ void sensor_read(void)
     Elapsed_time, Elapsed_time - Old_Elapsed_time ,v1, v2, v3, 
     (Phi-Phi_bias)*180/PI, (Theta-Theta_bias)*180/PI, (Psi-Psi_bias)*180/PI);
   #endif
+
+  float phi = Phi;
+  float tht = Theta;
+  //float psi = Psi;
+  //float sphi = sin(phi);
+  float cphi = cos(phi);
+ // float stht = sin(tht);
+  float ctht = cos(tht);
+  //float spsi = sin(psi);
+  //float spsi = cos(psi);
+
+  float r33 =  cphi*ctht;
+  Altitude2 = r33*Altitude;
+
 }
 
+#if 0
+
+float range = 1.0f;
+
+float phi = 0.0f;
+float tht = 0.0f;
+float psi = 0.0f;
+float sphi = sin(phi);
+float cphi = cos(phi);
+float stht = sin(tht);
+float ctht = cos(tht);
+float spsi = sin(psi);
+float spsi = cos(psi);
+
+float r11 =  ctht*cpsi;
+float r12 =  sphi*stht*cpsi - cphi*spsi;
+float r13 =  cphi*stht*cpsi + sphi*spsi;
+
+float r21 =  ctht*spsi;
+float r22 =  sphi*stht*spsi + cphi*cpsi;
+float r23 =  cphi*stht*spsi - sphi*cpsi;
+
+float r31 = -stht;
+float r32 =  sphi*ctht;
+float r33 =  cphi*ctht;
+
+float x = r13*range;
+float y = r23*range;
+float z = r33*range;
+
+
+#endif

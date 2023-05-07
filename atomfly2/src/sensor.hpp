@@ -31,6 +31,7 @@ typedef struct
 extern volatile float Ax,Ay,Az,Wp,Wq,Wr,Mx,My,Mz,Mx0,My0,Mz0,Mx_ave,My_ave,Mz_ave;
 extern volatile float Phi, Theta, Psi;
 extern volatile float Altitude;
+extern volatile float Altitude2;
 extern volatile float Voltage;
 extern float Acc_norm;
 extern quat_t Quat;
