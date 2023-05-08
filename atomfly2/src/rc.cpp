@@ -122,7 +122,6 @@ void telemetry_send(uint8_t* data, uint16_t datalen)
 
 void rc_end(void)
 {
-    // Ps3.end();
 }
 
 bool rc_isconnected(void)
@@ -133,17 +132,6 @@ bool rc_isconnected(void)
 
 void rc_demo()
 {
-    // if(!Ps3.isConnected())
-    //     return;
-
-    // //-------------------- Player LEDs -------------------
-    // Serial.print("Setting LEDs to player "); Serial.println(player, DEC);
-    // Ps3.setPlayer(player);
-
-    // player += 1;
-    // if(player > 10) player = 0;
-
-    // delay(2000);
 }
 
 

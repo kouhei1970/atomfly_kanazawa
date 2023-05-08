@@ -47,7 +47,9 @@ const float Tht_eta = 0.125f;
 
 //Times
 volatile float Elapsed_time=0.0f;
+volatile float Control_time0=0.0f;
 volatile float Old_Elapsed_time=0.0f;
+
 
 //
 volatile uint32_t S_time=0,E_time=0,D_time=0,S_time2=0,E_time2=0,Dt_time=0;
@@ -63,6 +65,7 @@ volatile float FR_duty=0.0f, FL_duty=0.0f, RR_duty=0.0f, RL_duty=0.0f;
 volatile float P_com=0.0f, Q_com=0.0f, R_com=0.0f;
 volatile float Phi_com=0.0f, Tht_com=0.0f, Psi_com=0.0f;
 volatile float T_ref=0.0f;
+volatile float T_ref0=0.0f;
 volatile float T_flip=0.0f;
 //volatile float Pbias=0.0f, Qbias=0.0f, Rbias=0.0f;
 volatile float Phi_bias=0.0f, Theta_bias=0.0f, Psi_bias=0.0f;  
@@ -94,6 +97,7 @@ volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
 CRGB Led_color = 0x000000;
 volatile uint8_t Ahrs_reset_flag=0;
+volatile uint8_t Alt_control_flag=0;
 
 //PID object and etc.
 PID p_pid;
@@ -369,7 +373,39 @@ void get_command(void)
   //T_ref = (3.42f*thlo -6.00f*thlo*thlo + 3.58f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   //T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
-  T_ref = 0.69;
+  //T_ref = 0.69;
+
+  //目標高度になったら徐々に高度を下げる
+  const float Alt_ref=500.0f;
+  if ( (Altitude2 > Alt_ref) || ( Alt_control_flag > 0) )
+  {
+    if((Altitude2<50.0)) Alt_control_flag = 2;
+    else if (Alt_control_flag == 0)Alt_control_flag = 1;
+
+    if(Alt_control_flag == 1)
+    {
+      T_ref = T_ref - T_ref0/(75.0*400.0);
+    }
+    else if(Alt_control_flag ==2)
+    {
+      T_ref = T_ref - T_ref0/(4.0*400.0);
+    }
+
+    if ( T_ref<0.0 )
+    {
+      T_ref = 0.0f;
+      T_ref0 = 0.0f;
+      Alt_control_flag = 0;
+      LockMode=0;
+      Mode = STAY_MODE;
+    }  
+  }
+  else 
+  {
+    T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
+    T_ref0 = T_ref;
+    Control_time0 = Elapsed_time;
+  }
 
   Phi_com = 0.6*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
