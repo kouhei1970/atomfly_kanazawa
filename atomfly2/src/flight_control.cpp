@@ -150,6 +150,7 @@ void init_atomfly(void)
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 2500, true);
   timerAlarmEnable(timer);
+  
   while(!rc_isconnected());
   //Mode = AVERAGE_MODE;
 }

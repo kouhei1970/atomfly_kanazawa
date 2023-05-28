@@ -39,7 +39,7 @@ uint8_t buttonB=0;
 uint8_t buttonB_cnt=0;
 uint8_t buttonB_pressed_flag=0;
 uint8_t Mode=ANGLECONTROL;
-
+uint8_t Loop_flag = 0;
 
 unsigned long stime,etime,dtime;
 byte axp_cnt=0;
@@ -181,6 +181,12 @@ void imu_init(void)
   Serial.printf("Update ACCEL_CONFIG2 %d\r\n", data);
 }
 
+hw_timer_t * timer = NULL;
+void IRAM_ATTR onTimer() 
+{
+  Loop_flag = 1;
+}
+
 void setup() {
 
   M5.begin();
@@ -284,7 +290,15 @@ void setup() {
   else
     Serial.println("done\n");
 
+  //割り込み設定
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, 2500, true);
+  timerAlarmEnable(timer);
+
 }
+
+
 
 void loop() {
   byte rx_data[5];
