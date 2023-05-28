@@ -293,7 +293,7 @@ void setup() {
   //割り込み設定
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 2500, true);
+  timerAlarmWrite(timer, 10000, true);
   timerAlarmEnable(timer);
 
 }
@@ -303,6 +303,10 @@ void setup() {
 void loop() {
   byte rx_data[5];
   short _xstick,_ystick;
+  
+  //100Hz
+  while(Loop_flag==0);
+  Loop_flag=0;
 
   stime = micros();
 
