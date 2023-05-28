@@ -291,10 +291,11 @@ void setup() {
     Serial.println("done\n");
 
   //割り込み設定
-  timer = timerBegin(0, 80, true);
+  timer = timerBegin(1, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 10000, true);
+  timerAlarmWrite(timer, 100000, true);
   timerAlarmEnable(timer);
+  delay(100);
 
 }
 
@@ -305,8 +306,8 @@ void loop() {
   short _xstick,_ystick;
   
   //100Hz
-  while(Loop_flag==0);
-  Loop_flag=0;
+  //while(Loop_flag==0);
+  //Loop_flag=0;
 
   stime = micros();
 
