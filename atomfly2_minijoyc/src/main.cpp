@@ -39,7 +39,7 @@ uint8_t buttonB=0;
 uint8_t buttonB_cnt=0;
 uint8_t buttonB_pressed_flag=0;
 uint8_t Mode=ANGLECONTROL;
-uint8_t Loop_flag = 0;
+volatile uint8_t Loop_flag = 0;
 
 unsigned long stime,etime,dtime;
 byte axp_cnt=0;
@@ -190,6 +190,7 @@ void IRAM_ATTR onTimer()
 void setup() {
 
   M5.begin();
+  Serial.begin(115200);
   Wire.begin(0, 26);
   Wire1.begin(21, 22);
   //M5.IMU.Init();
@@ -293,7 +294,7 @@ void setup() {
   //割り込み設定
   timer = timerBegin(1, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 100000, true);
+  timerAlarmWrite(timer, 10000, true);
   timerAlarmEnable(timer);
   delay(100);
 
@@ -306,13 +307,17 @@ void loop() {
   short _xstick,_ystick;
   
   //100Hz
-  //while(Loop_flag==0);
-  //Loop_flag=0;
+  while(Loop_flag==0);
+  Loop_flag=0;
 
+  etime = stime;
   stime = micros();
 
   M5.update();
-  
+
+  Serial.printf("ok %d\n", dtime);
+
+#if 1
   if(M5.BtnA.isPressed())
   {
     buttonA = 1; 
@@ -496,9 +501,12 @@ void loop() {
     //M5.Lcd.println("AtomFly2.0"); 
     esp_restart();
   } 
+#endif
 
-  etime = micros();
-  dtime = etime - stime;
+  //etime = micros();
+  
+  dtime = stime - etime;
+  //etime = stime;
   //if((10000-dtime)>0)delay((10000-dtime)/1000);
 }
 
