@@ -2,6 +2,7 @@
 #include "rc.hpp"
 #include <WiFi.h>
 #include <esp_now.h>
+//#include <esp_wifi.h>
 
 //esp_now_peer_info_t slave;
 
@@ -81,16 +82,18 @@ void rc_init(void)
     ESP.restart();
   }
 
+  
+
   //ペアリング
   
-  memcpy(peerInfo.peer_addr, addr, 6);
-  peerInfo.channel = 0;
-  peerInfo.encrypt = false;
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) 
-  {
-        Serial.println("Failed to add peer");
-        return;
-  }
+  //memcpy(peerInfo.peer_addr, addr, 6);
+  //peerInfo.channel = 8;
+  //peerInfo.encrypt = false;
+  //if (esp_now_add_peer(&peerInfo) != ESP_OK) 
+  //{
+  //      Serial.println("Failed to add peer");
+  //      return;
+  //}
 
   // ESP-NOWコールバック登録
   esp_now_register_recv_cb(OnDataRecv);
@@ -98,6 +101,8 @@ void rc_init(void)
   Serial.println("Wait Contoroller ready....");
   //while(Connect_flag==0);
   Serial.println("Contoroller ready !");
+  //esp_wifi_set_channel(8, WIFI_SECOND_CHAN_NONE);
+
 
 }
 

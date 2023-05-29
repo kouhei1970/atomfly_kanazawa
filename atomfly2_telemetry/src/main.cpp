@@ -3,6 +3,7 @@
 #include <M5Atom.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 
 uint8_t data[1];
 
@@ -39,6 +40,7 @@ void setup() {
   if (esp_now_init() == ESP_OK) {
     Serial.println("ESP-Now Init Success");
   }
+  esp_wifi_set_channel(8, WIFI_SECOND_CHAN_NONE);
   esp_now_register_recv_cb(dataRecv);
 }
 
