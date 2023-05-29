@@ -86,14 +86,14 @@ void rc_init(void)
 
   //ペアリング
   
-  //memcpy(peerInfo.peer_addr, addr, 6);
-  //peerInfo.channel = 8;
-  //peerInfo.encrypt = false;
-  //if (esp_now_add_peer(&peerInfo) != ESP_OK) 
-  //{
-  //      Serial.println("Failed to add peer");
-  //      return;
-  //}
+  memcpy(peerInfo.peer_addr, addr, 6);
+  peerInfo.channel = 5;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) 
+  {
+        Serial.println("Failed to add peer");
+        return;
+  }
 
   // ESP-NOWコールバック登録
   esp_now_register_recv_cb(OnDataRecv);

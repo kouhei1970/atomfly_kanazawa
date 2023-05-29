@@ -74,14 +74,14 @@ void rc_init(void)
 
   //ペアリング
   memcpy(peerInfo.peer_addr, addr, 6);
-  peerInfo.channel = 8;
+  peerInfo.channel = 0;
   peerInfo.encrypt = false;
   if (esp_now_add_peer(&peerInfo) != ESP_OK) 
   {
         Serial.println("Failed to add peer");
         return;
   }
-  esp_wifi_set_channel(8, WIFI_SECOND_CHAN_NONE);
+  //esp_wifi_set_channel(8, WIFI_SECOND_CHAN_NONE);
 
 }
 

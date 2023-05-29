@@ -40,7 +40,7 @@ void setup() {
   if (esp_now_init() == ESP_OK) {
     Serial.println("ESP-Now Init Success");
   }
-  esp_wifi_set_channel(8, WIFI_SECOND_CHAN_NONE);
+  //esp_wifi_set_channel(8, WIFI_SECOND_CHAN_NONE);
   esp_now_register_recv_cb(dataRecv);
 }
 
