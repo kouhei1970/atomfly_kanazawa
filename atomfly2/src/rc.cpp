@@ -2,7 +2,7 @@
 #include "rc.hpp"
 #include <WiFi.h>
 #include <esp_now.h>
-//#include <esp_wifi.h>
+#include <esp_wifi.h>
 
 //esp_now_peer_info_t slave;
 
@@ -101,7 +101,7 @@ void rc_init(void)
   Serial.println("Wait Contoroller ready....");
   //while(Connect_flag==0);
   Serial.println("Contoroller ready !");
-  //esp_wifi_set_channel(8, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_channel(5, WIFI_SECOND_CHAN_NONE);
 
 
 }
