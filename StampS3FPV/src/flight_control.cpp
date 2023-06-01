@@ -136,7 +136,7 @@ void IRAM_ATTR onTimer()
 void init_atomfly(void)
 {
   Mode = INIT_MODE;
-  M5.dis.drawpix(0, WHITE);
+  //M5.dis.drawpix(0, WHITE);
   init_pwm();
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8O1, 26, 32);
@@ -194,7 +194,7 @@ void loop_400Hz(void)
     if (BiasCounter < AVERAGENUM)
     {
       //Sensor Read
-      M5.dis.drawpix(0, PERPLE);
+      //M5.dis.drawpix(0, PERPLE);
       //sensor_read();
       Pbias += Wp;
       Qbias += Wq;
@@ -603,8 +603,8 @@ void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 
 void m5_atom_led(CRGB p, uint8_t state)
 {
-  if (state ==1) M5.dis.drawpix(0, p);
-  else M5.dis.drawpix(0, 0x000000);
+  if (state ==1) {}//M5.dis.drawpix(0, p);
+  else {}//M5.dis.drawpix(0, 0x000000);
   return;
 }
 

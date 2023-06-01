@@ -6,7 +6,7 @@
 #include "rc.hpp"
 #include "pid.hpp"
 #include "sensor.hpp"
-
+#include <FastLED.h>
 
 #define BATTERY_VOLTAGE (3.7)
 #define WHITE 0xffffff
