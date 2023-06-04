@@ -1,6 +1,5 @@
 #include "flight_control.hpp"
 
-
 const int pwmFL = 22;
 const int pwmFR = 19;
 const int pwmRL = 23;
@@ -92,7 +91,7 @@ uint8_t BtnA_on_flag = 0;
 uint8_t BtnA_off_flag =1;
 volatile uint8_t Loop_flag = 0;
 volatile uint8_t Angle_control_flag = 0;
-CRGB Led_color = 0x000000;
+uint32_t Led_color = 0x000000;
 
 //PID object and etc.
 PID p_pid;
@@ -107,7 +106,7 @@ void init_pwm();
 void control_init();
 void variable_init(void);
 //void gyro_calibration(void);
-void m5_atom_led(CRGB p, uint8_t state);
+//void m5_atom_led(CRGB p, uint8_t state);
 //void sensor_read(void);
 void get_command(void);
 void angle_control(void);
@@ -223,8 +222,8 @@ void loop_400Hz(void)
       {
         LockMode=3;//Disenable Flight
         led=0;
-        if(Power_flag==0)m5_atom_led(GREEN,led);
-        else m5_atom_led(POWEROFFCOLOR,led);
+        if(Power_flag==0){}//m5_atom_led(GREEN,led);
+        else {}//m5_atom_led(POWEROFFCOLOR,led);
         //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
         return;
       }
@@ -239,8 +238,8 @@ void loop_400Hz(void)
       return;
     }
     //LED Blink
-    if (Power_flag == 0) m5_atom_led(Led_color, led);
-    else m5_atom_led(POWEROFFCOLOR,led);
+    if (Power_flag == 0) {}//m5_atom_led(Led_color, led);
+    else {}//m5_atom_led(POWEROFFCOLOR,led);
     //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
     led=1;
 
@@ -264,14 +263,14 @@ void loop_400Hz(void)
     OverG_flag = 0;
     Angle_control_flag = 0;
     if(LedBlinkCounter<10){
-      if (Power_flag == 0) m5_atom_led(GREEN, 1);
-      else m5_atom_led(POWEROFFCOLOR,1);
+      if (Power_flag == 0) {}//m5_atom_led(GREEN, 1);
+      else {}//m5_atom_led(POWEROFFCOLOR,1);
       LedBlinkCounter++;
     }
     else if(LedBlinkCounter<100)
     {
-      if (Power_flag == 0) m5_atom_led(GREEN, 0);
-      else m5_atom_led(POWEROFFCOLOR,0);
+      if (Power_flag == 0) {}//m5_atom_led(GREEN, 0);
+      else {}//m5_atom_led(POWEROFFCOLOR,0);
       LedBlinkCounter++;
     }
     else LedBlinkCounter=0;
@@ -601,12 +600,14 @@ void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
 void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
 void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 
+/*
 void m5_atom_led(CRGB p, uint8_t state)
 {
   if (state ==1) {}//M5.dis.drawpix(0, p);
   else {}//M5.dis.drawpix(0, 0x000000);
   return;
 }
+*/
 
 void init_pwm(void)
 {

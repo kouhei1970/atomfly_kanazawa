@@ -1,5 +1,7 @@
 #include "sensor.hpp"
 
+
+MPU6886 IMU;
 //Adafruit_BMP280 bme;
 Madgwick Drone_ahrs;
 
@@ -83,8 +85,11 @@ void imu_init(void)
   //beta =0 次第に角度増大（角速度の積分のみに相当する）
   //beta=0.5
 
-  M5.IMU.Init();
+  IMU.Init();
   //IMUのデフォルトI2C周波数が100kHzなので400kHzに上書き
+
+  MPU6886 imu;
+
   Wire1.begin(25,21,400000UL);
 
  //F_CHOICE_B
@@ -208,8 +213,8 @@ void sensor_read(void)
   float filterd_v;
   static float dp, dq, dr; 
 
-  M5.IMU.getAccelData(&ax, &ay, &az);
-  M5.IMU.getGyroData(&gx, &gy, &gz);
+  IMU.getAccelData(&ax, &ay, &az);
+  IMU.getGyroData(&gx, &gy, &gz);
   //ax = ax;
   //ay = ay;
   if(Mode > AVERAGE_MODE)

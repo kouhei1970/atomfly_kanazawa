@@ -1,12 +1,12 @@
 #ifndef CONTROL_HPP
 #define CONTROL_HPP
 
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <math.h>
 #include "rc.hpp"
 #include "pid.hpp"
 #include "sensor.hpp"
-#include <FastLED.h>
+//#include <FastLED.h>
 
 #define BATTERY_VOLTAGE (3.7)
 #define WHITE 0xffffff

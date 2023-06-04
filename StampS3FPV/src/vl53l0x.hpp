@@ -12,7 +12,8 @@
 #define VL53L0X_REG_RESULT_RANGE_STATUS             0x14
 #define VL53L0X_address                             0x29  // VL53L0X I2C address
 
-#include "vl53l0x.hpp"
+typedef unsigned char byte;
+
 
 extern byte gbuf[16];
 

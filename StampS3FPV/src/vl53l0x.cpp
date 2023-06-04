@@ -1,3 +1,4 @@
+#include <Wire.h>
 #include "vl53l0x.hpp"
 
 byte gbuf[16];

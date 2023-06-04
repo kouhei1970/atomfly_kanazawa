@@ -4,11 +4,10 @@
 #include "flight_control.hpp"
 #include "pid.hpp"
 #include <INA3221.h>
-//#include <Adafruit_BMP280.h>
 #include "MadgwickAHRS.h"
 #include "vl53l0x.hpp"
 #include <stdint.h>
-//#include "Adafruit_Sensor.h"
+#include "MPU6886.h"
 
 typedef struct
 {
