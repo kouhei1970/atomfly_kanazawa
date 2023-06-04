@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <M5Atom.h>
 #include <math.h>
-#include "rc.hpp"
+#include "rc_sbus.hpp"
 #include "pid.hpp"
 #include "sensor.hpp"
 
