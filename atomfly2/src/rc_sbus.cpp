@@ -3,7 +3,12 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
-#include <driver/uart.h>
+#include "driver/uart.h"
+#if CONFIG_IDF_TARGET_ESP32
+    #include "esp32/rom/uart.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+    #include "esp32s2/rom/uart.h"
+#endif
 
 //esp_now_peer_info_t slave;
 
@@ -40,7 +45,7 @@ static const char *TAG = "uart_events";
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
 
-const int uart_buffer_size = (BUF_SIZE * 2);
+const int uart_buffer_size = (BUF_SIZE);
 static QueueHandle_t uart_queue;
 
 // Both definition are same and valid
@@ -54,24 +59,136 @@ uint8_t rxbuf[256];
 // Register to collect data length
 uint16_t urxlen;
 
-// 受信コールバック
-static void IRAM_ATTR uart_intr_handle(void *arg)
+volatile uint8_t Rc_data[1024];
+volatile uint16_t Rc_length = 999;
+
+//グローバル変数の宣言
+volatile uint16_t Chdata[18];
+
+// 受信コールバック  
+//static void IRAM_ATTR uart_intr_handle(void *arg)
+//static void uart_intr_handle(void *arg)
+void sbus_dacode(void)
 {
   uint16_t rx_fifo_len, status;
   uint16_t i;
-  Serial.printf("Receive!\n");
-  #if 0
-  status = UART0.int_st.val; // read UART interrupt Status
-  rx_fifo_len = UART0.status.rxfifo_cnt; // read number of bytes in UART buffer
-  
-  while(rx_fifo_len){
-   rxbuf[i++] = UART0.fifo.rw_byte; // read all bytes
-   rx_fifo_len--;
- }
- #endif
+
+  // Read data from UART.
+  const uart_port_t uart_num = UART_NUM_1;
+
+  uart_get_buffered_data_len(uart_num, (size_t*)&Rc_length);
+  Rc_length = uart_read_bytes(uart_num, (void*)Rc_data, Rc_length, 100);
+
+  //Rc_length = 777;
+  //Serial.printf("Receive! %d\n", length);
+
+  // after reading bytes from buffer clear UART interrupt status
+  //uart_clear_intr_status(UART_NUM_1, UART_RXFIFO_FULL_INT_CLR|UART_RXFIFO_TOUT_INT_CLR);
+
+  //ローカル変数の宣言
+  uint16_t chars_rxed = 0;
+  uint16_t data_num=0;
+  uint8_t sbus_data[25];
+  uint8_t ch;
+#if 1
+  while (Rc_length) {
+        ch = Rc_data[data_num];
+        data_num++;
+        Rc_length--;
+
+
+        if(ch==0x0f&&chars_rxed==0){
+            sbus_data[chars_rxed]=ch;
+            //printf("%02X ",ch);
+            chars_rxed++;
+        }
+        else if(chars_rxed>0){
+            sbus_data[chars_rxed]=ch;
+            //printf("%02X ",ch);
+            chars_rxed++;            
+        }
+        
+        switch(chars_rxed){
+            case 3:
+                Chdata[0]=(sbus_data[1]|(sbus_data[2]<<8)&0x07ff);
+                //printf("%04d ",Chdata[0]);
+                break;
+            case 4:
+                Chdata[1]=(sbus_data[3]<<5|sbus_data[2]>>3)&0x07ff;
+                //printf("%04d ",Chdata[1]);
+                break;
+            case 6:
+                Chdata[2]=(sbus_data[3]>>6|sbus_data[4]<<2|sbus_data[5]<<10)&0x07ff;
+                //printf("%04d ",Chdata[2]);
+                break;
+            case 7:
+                Chdata[3]=(sbus_data[6]<<7|sbus_data[5]>>1)&0x07ff;
+                //printf("%04d ",Chdata[3]);
+                break;
+            case 8:
+                Chdata[4]=(sbus_data[7]<<4|sbus_data[6]>>4)&0x07ff;
+                //printf("%04d ",Chdata[4]);
+                break;
+            case 10:
+                Chdata[5]=(sbus_data[7]>>7|sbus_data[8]<<1|sbus_data[9]<<9)&0x07ff;
+                //printf("%04d ",Chdata[5]);
+                break;
+            case 11:
+                Chdata[6]  = ((sbus_data[9]>>2|sbus_data[10]<<6) & 0x07FF);
+                //printf("%04d ",Chdata[6]);
+                break;
+            case 12:
+                Chdata[7]  = ((sbus_data[10]>>5|sbus_data[11]<<3) & 0x07FF);
+                //printf("%04d ",Chdata[7]);
+                break;
+            case 14:
+                Chdata[8]  = ((sbus_data[12]|sbus_data[13]<< 8) & 0x07FF);
+                //printf("%04d ",Chdata[8]);
+                break;
+            case 15:
+                Chdata[9]  = ((sbus_data[13]>>3|sbus_data[14]<<5) & 0x07FF);
+                //printf("%04d ",Chdata[9]);
+                break;
+            case 16:
+                Chdata[10] = ((sbus_data[14]>>6|sbus_data[15]<<2|sbus_data[16]<<10) & 0x07FF);
+                //printf("%04d ",Chdata[10]);
+                break;
+            case 17:
+                Chdata[11] = ((sbus_data[16]>>1|sbus_data[17]<<7) & 0x07FF);
+                //printf("%04d ",Chdata[11]);
+                break;
+            case 19:
+                Chdata[12] = ((sbus_data[17]>>4|sbus_data[18]<<4) & 0x07FF);
+                //printf("%04d ",Chdata[12]);
+                break;
+            case 21:
+                Chdata[13] = ((sbus_data[18]>>7|sbus_data[19]<<1|sbus_data[20]<<9) & 0x07FF);
+                //printf("%04d ",Chdata[13]);
+                break;
+            case 22:
+                Chdata[14] = ((sbus_data[20]>>2|sbus_data[21]<<6) & 0x07FF);
+                //printf("%04d ",Chdata[14]);
+                break;
+            case 23:
+                Chdata[15] = ((sbus_data[21]>>5|sbus_data[22]<<3) & 0x07FF);
+                //printf("%04d ",Chdata[15]);
+                break;
+            case 24:
+                Chdata[16] = sbus_data[23];
+                //printf("%04x ",Chdata[16]);
+                break;
+        }
+
+        if(chars_rxed==25){
+            Chdata[17]=sbus_data[24];
+            //printf("%04d ",Chdata[17]);
+            //printf("\n");
+            chars_rxed=0;
+        }
+    }
+#endif
+
 }
-
-
 
 
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len) 
@@ -97,7 +214,7 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len)
 
 void rc_init(void)
 {
-  esp_now_init();
+  telemetry_init();
 
   //Initialize Stick list 
   for (uint8_t i = 0;i<16;i++)Stick[i]=0.0;
@@ -105,21 +222,21 @@ void rc_init(void)
   /* Configure parameters of an UART driver,
 	* communication pins and install the driver */
 	uart_config_t uart_config = {
-		.baud_rate = 115200,
+		.baud_rate = 100000,
 		.data_bits = UART_DATA_8_BITS,
-		.parity = UART_PARITY_DISABLE,
-		.stop_bits = UART_STOP_BITS_1,
+		.parity = UART_PARITY_EVEN,
+		.stop_bits = UART_STOP_BITS_2,
 		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE
 	};
   // Configure UART parameters
   uart_param_config(UART_NUM_1, &uart_config);
     //Set pin
-  //uart_set_pin(UART_NUM_1, 32, 26, -1, -1);
+  uart_set_pin(UART_NUM_1, 32, 26, -1, -1);
+  uart_set_line_inverse(UART_NUM_1, UART_SIGNAL_RXD_INV);
   // Install UART driver using an event queue here
-  //uart_driver_install(UART_NUM_1, uart_buffer_size, \
-                                        uart_buffer_size, 10, &uart_queue, 0);
+  uart_driver_install(UART_NUM_1, uart_buffer_size, 0, 10, &uart_queue, 0);
   //uart_isr_free(UART_NUM_1);
-  //uart_isr_register(UART_NUM_1,uart_intr_handle, NULL, ESP_INTR_FLAG_IRAM, &handle_console);
+  //uart_isr_register(UART_NUM_1, uart_intr_handle, NULL, 1, &handle_console);
   //uart_enable_rx_intr(UART_NUM_1);
 
 }

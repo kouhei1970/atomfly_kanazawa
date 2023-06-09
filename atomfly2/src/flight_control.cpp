@@ -169,7 +169,9 @@ void loop_400Hz(void)
 
   //Read Sensor Value
   sensor_read();
-
+  sbus_dacode();
+  //Get command
+  get_command();
 
   //Begin Mode select
   if (Mode == INIT_MODE)
@@ -217,35 +219,16 @@ void loop_400Hz(void)
   }
   else if( Mode == FLIGHT_MODE)
   {
-    if(LockMode==2)
+    if(lock_com()==0)
     {
-      if(lock_com()==1)
-      {
-        LockMode=3;//Disenable Flight
-        led=0;
-        if(Power_flag==0)m5_atom_led(GREEN,led);
-        else m5_atom_led(POWEROFFCOLOR,led);
-        //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
-        return;
-      }
-      //Goto Flight
-    }
-    else if(LockMode==3)
-    {
-      if(lock_com()==0){
-        LockMode=0;
-        Mode=STAY_MODE;
-      }
+      Mode=STAY_MODE;
       return;
     }
+    
     //LED Blink
+    led =1 ;
     if (Power_flag == 0) m5_atom_led(Led_color, led);
     else m5_atom_led(POWEROFFCOLOR,led);
-    //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
-    led=1;
-
-    //Get command
-    get_command();
 
     //Angle Control
     angle_control();
@@ -255,6 +238,8 @@ void loop_400Hz(void)
   }
   else if(Mode == STAY_MODE)
   {
+    //sbus_dacode();
+    Serial.printf("%f\r\n", T_ref);
     motor_stop();
     //Befor takeoff Voltage Low Check
     if(Voltage<3.7)
@@ -275,25 +260,10 @@ void loop_400Hz(void)
       LedBlinkCounter++;
     }
     else LedBlinkCounter=0;
-      
-    if(LockMode==0)
-    {
-      if( lock_com()==1)
-      {
-        LockMode=1;
-        return;
-      }
-      //Wait output log
-    }
-    else if(LockMode==1)
-    {
-      if(lock_com()==0)
-      {
-        LockMode=2;//Enable Flight
-        Mode=FLIGHT_MODE;
-      }
-      return;
-    }
+
+    if(lock_com()==1)Mode=FLIGHT_MODE;
+    return;
+
   }
 
   //Telemetry
@@ -350,14 +320,15 @@ void control_init(void)
 
 void get_command(void)
 {
-  Control_mode = Stick[CONTROLMODE];
-
+  Control_mode = ANGLECONTROL;//Stick[CONTROLMODE];
 
   //if(OverG_flag == 1){
   //  T_ref = 0.0;
   //}
   //Throttle curve conversion　スロットルカーブ補正
-  float thlo = Stick[THROTTLE];
+  float thlo = (float)(Chdata[2]-CH3MIN)/(CH3MAX-CH3MIN);
+
+  //float thlo = Stick[THROTTLE];
   if (thlo>1.0f) thlo = 1.0f;
   if (thlo<0.0f) thlo = 0.0f;
   //T_ref = (3.27f*thlo -5.31f*thlo*thlo + 3.04f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
@@ -368,17 +339,20 @@ void get_command(void)
   //T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
-  Phi_com = 0.6*Stick[AILERON];
+  //Get angle ref 
+  Phi_com = 0.3 *M_PI*(float)(Chdata[3] - (CH4MAX+CH4MIN)*0.5)*2/(CH4MAX-CH4MIN);
+  Tht_com = 0.3 *M_PI*(float)(Chdata[1] - (CH2MAX+CH2MIN)*0.5)*2/(CH2MAX-CH2MIN);
+  Psi_com = 0.8 *M_PI*(float)(Chdata[0] - (CH1MAX+CH1MIN)*0.5)*2/(CH1MAX-CH1MIN);
+
   if (Phi_com<-1.0f)Phi_com = -1.0f;
   if (Phi_com> 1.0f)Phi_com =  1.0f;  
-  Tht_com = 0.6*Stick[ELEVATOR];
   if (Tht_com<-1.0f)Tht_com = -1.0f;
   if (Tht_com> 1.0f)Tht_com =  1.0f;  
-  Psi_com = Stick[RUDDER];
   if (Psi_com<-1.0f)Psi_com = -1.0f;
   if (Psi_com> 1.0f)Psi_com =  1.0f;  
+
   //Yaw control
-  Rref   = 0.8f * PI * (Psi_com - Rudder_center);
+  Rref   = -0.8f * PI * (Psi_com - Rudder_center);
 
   if (Control_mode == RATECONTROL)
   {
@@ -887,19 +861,8 @@ void append_data(uint8_t* data , uint8_t* newdata, uint8_t index, uint8_t len)
 uint8_t lock_com(void)
 {
   static uint8_t chatta=0,state=0;
-  if( (int)Stick[BUTTON] == 0 )
-  { 
-    chatta++;
-    if(chatta>20){
-      chatta=20;
-      state=1;
-    }
-  }
-  else 
-  {
-    chatta=0;
-    state=0;
-  }
+  if( Chdata[4]>(CH5MAX+CH5MIN)*0.5 )state =1 ;
+  else state = 0;
   return state;
 }
 

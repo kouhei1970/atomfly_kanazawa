@@ -27,9 +27,21 @@
 #define AILERON_MIN -128
 #define LOG_MAX 1
 #define LOG_MIN 0
-#define CH6MAX 127
-#define CH6MIN -128
 #define BTID "4c:75:25:d5:b2:8e"
+
+#define CH1MAX 1771
+#define CH1MIN 278
+#define CH2MAX 1756
+#define CH2MIN 316
+#define CH3MAX 1774
+#define CH3MIN 372
+#define CH4MAX 1745
+#define CH4MIN 291
+#define CH5MAX 1904
+#define CH5MIN 144
+#define CH6MAX 1904
+#define CH6MIN 144
+
 
 void rc_init(void);
 void telemetry_init(void);
@@ -37,8 +49,13 @@ void rc_demo(void);
 void rc_end(void);
 bool rc_isconnected(void);
 void telemetry_send(uint8_t* data, uint16_t datalen);
+void sbus_dacode(void);
 
-
+//グローバル変数の宣言
 extern volatile float Stick[16];
+extern volatile uint8_t Rc_data[1024];
+extern volatile uint16_t Rc_length;
+extern volatile uint16_t Chdata[18];
+
 
 #endif
