@@ -1,7 +1,7 @@
 #ifndef CONTROL_HPP
 #define CONTROL_HPP
 
-//#include <Arduino.h>
+#include <Arduino.h>
 #include <math.h>
 #include "rc.hpp"
 #include "pid.hpp"

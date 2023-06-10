@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <FastLED.h>
+//#include <FastLED.h>
 #include "flight_control.hpp"
 
 #define PIN_BUTTON 0
