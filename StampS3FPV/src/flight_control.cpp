@@ -384,7 +384,7 @@ void get_command(void)
   if (Psi_com<-1.0f)Psi_com = -1.0f;
   if (Psi_com> 1.0f)Psi_com =  1.0f;  
   //Yaw control
-  Rref   = 0.8f * PI * (Psi_com - Rudder_center);
+  Rref   = 1.5f * PI * (Psi_com - Rudder_center);
 
   if (Control_mode == RATECONTROL)
   {
@@ -814,14 +814,12 @@ void telemetry(void)
     data2log(senddata, (Wr-Rbias)*180/PI, index);
     index = index + 4;
     //9 Phi_ref
-    //data2log(senddata, Phi_ref*180/PI, index);
-    data2log(senddata, 0.5f * 180.0f *Phi_com, index);
-
+    data2log(senddata, Phi_ref*180/PI, index);
+    //data2log(senddata, 0.5f * 180.0f *Phi_com, index);
     index = index + 4;
     //10 Theta_ref
-    //data2log(senddata, Theta_ref*180/PI, index);
-    data2log(senddata, 0.5 * 189.0f* Tht_com, index);
-
+    data2log(senddata, Theta_ref*180/PI, index);
+    //data2log(senddata, 0.5 * 189.0f* Tht_com, index);
     index = index + 4;
     //11 P ref
     data2log(senddata, Pref*180/PI, index);
