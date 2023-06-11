@@ -10,6 +10,7 @@
 #define RATECONTROL 1
 #define ANGLECONTROL_W_LOG 2
 #define RATECONTROL_W_LOG 3
+#define CHANNEL (5)
 
 Madgwick Ahrs;
 
@@ -52,7 +53,8 @@ uint8_t disp_counter=0;
 //Kouhei AtomFlyのMAC ADDRESS E8:9F:6D:06:D3:A0
 //B MAC ADDRESS E8:9F:6D:07:B4:84
 //4C:75:25:AE:27:FC
-const uint8_t addr[6] = {0xE8, 0x9F, 0x6D, 0x06, 0xD3, 0xA0};
+//StampS3-1 DC:54:75:C8:AD:5C
+const uint8_t addr[6] = {0xDC, 0x54, 0x75, 0xC8, 0xAD, 0x5C};
 //E8:9F:6D:06:D3:A0
 
 void rc_init(void);
@@ -74,14 +76,14 @@ void rc_init(void)
 
   //ペアリング
   memcpy(peerInfo.peer_addr, addr, 6);
-  peerInfo.channel = 5;
+  peerInfo.channel = CHANNEL;
   peerInfo.encrypt = false;
   if (esp_now_add_peer(&peerInfo) != ESP_OK) 
   {
         Serial.println("Failed to add peer");
         return;
   }
-  esp_wifi_set_channel(5, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_channel(CHANNEL, WIFI_SECOND_CHAN_NONE);
 
 }
 

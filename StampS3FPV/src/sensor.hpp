@@ -9,6 +9,9 @@
 #include <stdint.h>
 #include "MPU6886.h"
 
+#define SDA_PIN (46)
+#define SCL_PIN (41)
+
 typedef struct
 {
   float q0;

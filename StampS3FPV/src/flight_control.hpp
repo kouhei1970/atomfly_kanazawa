@@ -6,7 +6,7 @@
 #include "rc.hpp"
 #include "pid.hpp"
 #include "sensor.hpp"
-//#include <FastLED.h>
+#include <FastLED.h>
 
 #define BATTERY_VOLTAGE (3.7)
 #define WHITE 0xffffff
@@ -15,6 +15,10 @@
 #define GREEN 0x00ff00
 #define PERPLE 0xff00ff
 #define POWEROFFCOLOR 0x18EBF9
+
+#define PIN_BUTTON 0
+#define PIN_LED    21
+#define NUM_LEDS   1
 
 #define AVERAGENUM 800
 

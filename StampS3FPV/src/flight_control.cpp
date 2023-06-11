@@ -1,17 +1,15 @@
 #include "flight_control.hpp"
 
-const int pwmFL = 22;
-const int pwmFR = 19;
-const int pwmRL = 23;
-const int pwmRR = 33;
+const int pwmFL = 7;
+const int pwmFR = 1;
+const int pwmRL = 12;
+const int pwmRR = 42;
 
-const int freq = 300000;
+const int freq = 150000;
 const int FL_motor = 1;
 const int FR_motor = 2;
 const int RL_motor = 3;
 const int RR_motor = 4;
-const int ledChannel1 = 0;
-const int ledChannel2 = 5;
 const int resolution = 8;
 
 //Control period
@@ -106,7 +104,7 @@ void init_pwm();
 void control_init();
 void variable_init(void);
 //void gyro_calibration(void);
-//void m5_atom_led(CRGB p, uint8_t state);
+void m5_atom_led(CRGB p, uint8_t state);
 //void sensor_read(void);
 void get_command(void);
 void angle_control(void);
@@ -125,6 +123,7 @@ void float2byte(float x, uint8_t* dst);
 void append_data(uint8_t* data , uint8_t* newdata, uint8_t index, uint8_t len);
 void data2log(uint8_t* data_list, float add_data, uint8_t index);
 
+CRGB leds[NUM_LEDS];
 
 hw_timer_t * timer = NULL;
 void IRAM_ATTR onTimer() 
@@ -135,12 +134,20 @@ void IRAM_ATTR onTimer()
 void init_atomfly(void)
 {
   Mode = INIT_MODE;
-  //M5.dis.drawpix(0, WHITE);
+
+  //LED initialaze
+  FastLED.addLeds<WS2812, PIN_LED, GRB>(leds, NUM_LEDS);
+  leds[0]=0;
+  FastLED.show();
+
+  USBSerial.begin(115200);
+  delay(2000);
+  USBSerial.printf("Start StampS3FPV!\r\n");
+  
   init_pwm();
-  Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8O1, 26, 32);
   rc_init();
-  //while(!rc_isconnected());  
+  leds[0]=WHITE;
+  FastLED.show();
   sensor_init();
   control_init();
 
@@ -193,7 +200,7 @@ void loop_400Hz(void)
     if (BiasCounter < AVERAGENUM)
     {
       //Sensor Read
-      //M5.dis.drawpix(0, PERPLE);
+      m5_atom_led(PERPLE, 1);
       //sensor_read();
       Pbias += Wp;
       Qbias += Wq;
@@ -222,8 +229,8 @@ void loop_400Hz(void)
       {
         LockMode=3;//Disenable Flight
         led=0;
-        if(Power_flag==0){}//m5_atom_led(GREEN,led);
-        else {}//m5_atom_led(POWEROFFCOLOR,led);
+        if(Power_flag==0)m5_atom_led(GREEN,led);
+        else m5_atom_led(POWEROFFCOLOR,led);
         //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
         return;
       }
@@ -238,8 +245,8 @@ void loop_400Hz(void)
       return;
     }
     //LED Blink
-    if (Power_flag == 0) {}//m5_atom_led(Led_color, led);
-    else {}//m5_atom_led(POWEROFFCOLOR,led);
+    if (Power_flag == 0) m5_atom_led(Led_color, led);
+    else m5_atom_led(POWEROFFCOLOR,led);
     //if( (Elapsed_time - Old_Elapsed_time)>0.00251) m5_atom_led(0xffffff,led);
     led=1;
 
@@ -263,14 +270,14 @@ void loop_400Hz(void)
     OverG_flag = 0;
     Angle_control_flag = 0;
     if(LedBlinkCounter<10){
-      if (Power_flag == 0) {}//m5_atom_led(GREEN, 1);
-      else {}//m5_atom_led(POWEROFFCOLOR,1);
+      if (Power_flag == 0) m5_atom_led(GREEN, 1);
+      else m5_atom_led(POWEROFFCOLOR,1);
       LedBlinkCounter++;
     }
     else if(LedBlinkCounter<100)
     {
-      if (Power_flag == 0) {}//m5_atom_led(GREEN, 0);
-      else {}//m5_atom_led(POWEROFFCOLOR,0);
+      if (Power_flag == 0) m5_atom_led(GREEN, 0);
+      else m5_atom_led(POWEROFFCOLOR,0);
       LedBlinkCounter++;
     }
     else LedBlinkCounter=0;
@@ -499,7 +506,7 @@ void rate_control(void)
         LockMode = 0;
         Mode = STAY_MODE;
       }
-      //Serial.printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
+      //USBSerial.printf("%12.5f %12.5f %12.5f %12.5f\n",FR_duty, FL_duty, RR_duty, RL_duty);
     }
   }
   else{
@@ -516,7 +523,7 @@ void angle_control(void)
 
   if (Control_mode == RATECONTROL) return;
 
-  //Serial.printf("On=%d Off=%d Flip=%d Counter=%d\r\n", BtnA_on_flag, BtnA_off_flag, Flip_flag, Flip_counter);
+  //USBSerial.printf("On=%d Off=%d Flip=%d Counter=%d\r\n", BtnA_on_flag, BtnA_off_flag, Flip_flag, Flip_counter);
 
   //PID Control
   if ((T_ref/BATTERY_VOLTAGE < Motor_on_duty_threshold))//Angle_control_on_duty_threshold))
@@ -600,14 +607,16 @@ void set_duty_fl(float duty){ledcWrite(FL_motor, (uint32_t)(255*duty));}
 void set_duty_rr(float duty){ledcWrite(RR_motor, (uint32_t)(255*duty));}
 void set_duty_rl(float duty){ledcWrite(RL_motor, (uint32_t)(255*duty));}
 
-/*
+
 void m5_atom_led(CRGB p, uint8_t state)
 {
-  if (state ==1) {}//M5.dis.drawpix(0, p);
-  else {}//M5.dis.drawpix(0, 0x000000);
+  if (state ==1) leds[0]=p;
+  else leds[0]=0;
+   //Update LED
+  FastLED.show();
   return;
 }
-*/
+
 
 void init_pwm(void)
 {

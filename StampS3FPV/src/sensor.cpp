@@ -23,25 +23,25 @@ volatile uint8_t Power_flag = 0;
 
 uint8_t init_i2c()
 {
-  Wire1.begin(25,21,400000UL);
-  Serial.println ("I2C scanner. Scanning ...");
+  Wire1.begin(SDA_PIN, SCL_PIN,400000UL);
+  USBSerial.println ("I2C scanner. Scanning ...");
   byte count = 0;
   for (short i = 0; i < 256; i++)
   {
     Wire1.beginTransmission (i);          // Begin I2C transmission Address (i)
     if (Wire1.endTransmission () == 0)  // Receive 0 = success (ACK response) 
     {
-      Serial.print ("Found address: ");
-      Serial.print (i, DEC);
-      Serial.print (" (0x");
-      Serial.print (i, HEX);     // PCF8574 7 bit address
-      Serial.println (")");
+      USBSerial.print ("Found address: ");
+      USBSerial.print (i, DEC);
+      USBSerial.print (" (0x");
+      USBSerial.print (i, HEX);     // PCF8574 7 bit address
+      USBSerial.println (")");
       count++;
     }
   }
-  Serial.print ("Found ");      
-  Serial.print (count, DEC);        // numbers of devices
-  Serial.println (" device(s).");
+  USBSerial.print ("Found ");      
+  USBSerial.print (count, DEC);        // numbers of devices
+  USBSerial.println (" device(s).");
   return count;
 }
 
@@ -90,41 +90,41 @@ void imu_init(void)
 
   MPU6886 imu;
 
-  Wire1.begin(25,21,400000UL);
+  Wire1.begin(SDA_PIN, SCL_PIN, 400000UL);
 
  //F_CHOICE_B
   data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
-  Serial.printf("GYRO_CONFIG %d\r\n", data);
+  USBSerial.printf("GYRO_CONFIG %d\r\n", data);
   mpu6886_byte_write(MPU6886_GYRO_CONFIG, data & 0b11111100);
   data = mpu6886_byte_read(MPU6886_GYRO_CONFIG);
-  Serial.printf("Update GYRO_CONFIG %d\r\n", data);
+  USBSerial.printf("Update GYRO_CONFIG %d\r\n", data);
 
   //Gyro
   //DLPG_CFG
   data = mpu6886_byte_read(MPU6886_CONFIG);
-  Serial.printf("CONFIG %d\r\n", data);
+  USBSerial.printf("CONFIG %d\r\n", data);
   mpu6886_byte_write(MPU6886_CONFIG, (data&0b11111100)|filter_config);
   data = mpu6886_byte_read(MPU6886_CONFIG);
-  Serial.printf("Update CONFIG %d\r\n", data);
+  USBSerial.printf("Update CONFIG %d\r\n", data);
 
   //Accel
   //ACCEL_FCHOCE_B & A_DLPF_CFG
   data = mpu6886_byte_read(MPU6886_ACCEL_CONFIG2);
-  Serial.printf("ACCEL_CONFIG2 %d\r\n", data);
+  USBSerial.printf("ACCEL_CONFIG2 %d\r\n", data);
   mpu6886_byte_write(MPU6886_ACCEL_CONFIG2, (data & 0b11110111) | filter_config);
   data = mpu6886_byte_read(MPU6886_ACCEL_CONFIG2);
-  Serial.printf("Update ACCEL_CONFIG2 %d\r\n", data);
+  USBSerial.printf("Update ACCEL_CONFIG2 %d\r\n", data);
 
 }
 
 void test_rangefinder(void)
 {
   #if 1
-  Serial.println("VLX53LOX test started.");
-  //Serial.println(F("BMP280 test started...\n"));
+  USBSerial.println("VLX53LOX test started.");
+  //USBSerial.println(F("BMP280 test started...\n"));
 
   //Begin Range finder Test
-  //Serial.println(read_byte_data_at(VL53L0X_REG_IDENTIFICATION_MODEL_ID));
+  //USBSerial.println(read_byte_data_at(VL53L0X_REG_IDENTIFICATION_MODEL_ID));
   write_byte_data_at(VL53L0X_REG_SYSRANGE_START, 0x01);
 
   byte val = 0;
@@ -136,25 +136,25 @@ void test_rangefinder(void)
       cnt++;
   }
   if (val & 0x01)
-      Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
+      USBSerial.printf("VL53L0X is ready. cnt=%d\n",cnt);
   else
-      Serial.println("VL53L0X is not ready");
+      USBSerial.println("VL53L0X is not ready");
 
   read_block_data_at(0x14, 12);
   uint16_t acnt = makeuint16(gbuf[7], gbuf[6]);
   uint16_t scnt = makeuint16(gbuf[9], gbuf[8]);
   uint16_t dist = makeuint16(gbuf[11], gbuf[10]);
   byte DeviceRangeStatusInternal = ((gbuf[0] & 0x78) >> 3);
-  Serial.print("ambient count: ");
-  Serial.println(acnt);
-  Serial.print("signal count: ");
-  Serial.println(scnt);
-  Serial.print("ambient count: ");
-  Serial.println(acnt);
-  Serial.print("distance: ");
-  Serial.println(dist);
-  Serial.print("status: ");
-  Serial.println(DeviceRangeStatusInternal);
+  USBSerial.print("ambient count: ");
+  USBSerial.println(acnt);
+  USBSerial.print("signal count: ");
+  USBSerial.println(scnt);
+  USBSerial.print("ambient count: ");
+  USBSerial.println(acnt);
+  USBSerial.print("distance: ");
+  USBSerial.println(dist);
+  USBSerial.print("status: ");
+  USBSerial.println(DeviceRangeStatusInternal);
   //End Range finder Test
   #endif
 }
@@ -163,8 +163,8 @@ void sensor_init()
 {
   if(init_i2c()==0)
   {
-    Serial.printf("No I2C device!\r\n");
-    Serial.printf("Can not boot AtomFly2.\r\n");
+    USBSerial.printf("No I2C device!\r\n");
+    USBSerial.printf("Can not boot AtomFly2.\r\n");
     while(1);
   }
 
@@ -193,9 +193,9 @@ uint16_t get_distance(void)
       cnt++;
   }
   //if (val & 0x01)
-  //    Serial.printf("VL53L0X is ready. cnt=%d\n",cnt);
+  //    USBSerial.printf("VL53L0X is ready. cnt=%d\n",cnt);
   //else
-  //    Serial.println("VL53L0X is not ready");
+  //    USBSerial.println("VL53L0X is not ready");
 
   read_block_data_at(0x14, 12);
   //uint16_t acnt                  = makeuint16(gbuf[7], gbuf[6]);
@@ -272,7 +272,7 @@ void sensor_read(void)
 
   #if 0
   if(Stick[BUTTON_A]==1)
-  Serial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f \r\n", 
+  USBSerial.printf("%9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f %9.4f \r\n", 
     Elapsed_time, Elapsed_time - Old_Elapsed_time ,v1, v2, v3, 
     (Phi-Phi_bias)*180/PI, (Theta-Theta_bias)*180/PI, (Psi-Psi_bias)*180/PI);
   #endif

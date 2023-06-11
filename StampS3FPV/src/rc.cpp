@@ -73,12 +73,12 @@ void rc_init(void)
   // ESP-NOW初期化
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
-  Serial.printf("MAC ADDRESS: %s\r\n", (WiFi.macAddress()).c_str());
+  USBSerial.printf("MAC ADDRESS: %s\r\n", (WiFi.macAddress()).c_str());
 
   if (esp_now_init() == ESP_OK) {
-    Serial.println("ESPNow Init Success");
+    USBSerial.println("ESPNow Init Success");
   } else {
-    Serial.println("ESPNow Init Failed");
+    USBSerial.println("ESPNow Init Failed");
     ESP.restart();
   }
 
@@ -91,16 +91,16 @@ void rc_init(void)
   peerInfo.encrypt = false;
   if (esp_now_add_peer(&peerInfo) != ESP_OK) 
   {
-        Serial.println("Failed to add peer");
+        USBSerial.println("Failed to add peer");
         return;
   }
 
   // ESP-NOWコールバック登録
   esp_now_register_recv_cb(OnDataRecv);
-  Serial.println("ESP-NOW Ready.");
-  Serial.println("Wait Contoroller ready....");
+  USBSerial.println("ESP-NOW Ready.");
+  USBSerial.println("Wait Contoroller ready....");
   //while(Connect_flag==0);
-  Serial.println("Contoroller ready !");
+  USBSerial.println("Contoroller ready !");
   esp_wifi_set_channel(5, WIFI_SECOND_CHAN_NONE);
 
 
@@ -111,7 +111,7 @@ void telemetry_send(uint8_t* data, uint16_t datalen)
   //uint8_t data[1];
   //data[0]=0xff;
   esp_err_t result = esp_now_send(peerInfo.peer_addr, data, datalen);
-  //Serial.printf("%d\r\n", sizeof(data));
+  //USBSerial.printf("%d\r\n", sizeof(data));
 }
 
 void rc_end(void)
@@ -131,7 +131,7 @@ void rc_demo()
     //     return;
 
     // //-------------------- Player LEDs -------------------
-    // Serial.print("Setting LEDs to player "); Serial.println(player, DEC);
+    // USBSerial.print("Setting LEDs to player "); USBSerial.println(player, DEC);
     // Ps3.setPlayer(player);
 
     // player += 1;
