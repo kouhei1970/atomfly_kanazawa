@@ -1,3 +1,3 @@
-# atomfly2 controller
+# M5Fly JoyC Controller
 
-Change the mac address to that of atomfly's M5Atom lite.
+Change the MAC Address to that of your M5flys.
