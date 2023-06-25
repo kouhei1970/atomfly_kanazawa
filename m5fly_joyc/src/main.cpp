@@ -470,7 +470,7 @@ void loop() {
 
   uint8_t* d_int;
   
-#if 1 //for kouhei
+#if 0 //for kouhei
   float rudder = Right_stick_x;
   float throttle = Right_stick_y;
   float aileron = -Left_stick_x;
