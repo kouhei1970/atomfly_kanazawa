@@ -29,6 +29,7 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len)
   int16_t d_short;
   float d_float;
 
+#ifdef MINIJOYC
   d_int = (uint8_t*)&d_short;
   d_int[0]=recv_data[0];
   d_int[1]=recv_data[1];
@@ -63,6 +64,51 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *recv_data, int data_len)
   Stick[AILERON] /= (0.5*3.14159);
   Stick[ELEVATOR] /= (0.5*3.14159);
   if(Stick[THROTTLE]<0.0) Stick[THROTTLE]=0.0;
+
+#else
+  d_int = (uint8_t*)&d_float;
+  
+  d_int[0] = recv_data[0];
+  d_int[1] = recv_data[1];
+  d_int[2] = recv_data[2];
+  d_int[3] = recv_data[3];
+  Stick[RUDDER]=d_float;
+
+  d_int[0] = recv_data[4];
+  d_int[1] = recv_data[5];
+  d_int[2] = recv_data[6];
+  d_int[3] = recv_data[7];
+  Stick[THROTTLE]=d_float;
+
+  d_int[0] = recv_data[8];
+  d_int[1] = recv_data[9];
+  d_int[2] = recv_data[10];
+  d_int[3] = recv_data[11];
+  Stick[AILERON]  = d_float;
+
+  d_int[0] = recv_data[12];
+  d_int[1] = recv_data[13];
+  d_int[2] = recv_data[14];
+  d_int[3] = recv_data[15];
+  Stick[ELEVATOR]  = d_float;
+
+  Stick[BUTTON] = recv_data[16];
+  Stick[BUTTON_A] = recv_data[17];
+  Stick[CONTROLMODE] = recv_data[18];
+  
+  Stick[LOG] = 0.0;
+
+  //Normalize
+  //Stick[RUDDER] /= -RUDDER_MAX_JOYC;
+  //Stick[THROTTLE] /= THROTTLE_MAX_JOYC;
+  //Stick[AILERON] /= (0.5*3.14159);
+  //Stick[ELEVATOR] /= (0.5*3.14159);
+  if(Stick[THROTTLE]<0.0) Stick[THROTTLE]=0.0;
+
+
+
+#endif
+
 }
 
 void rc_init(void)

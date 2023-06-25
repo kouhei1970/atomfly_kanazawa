@@ -412,6 +412,8 @@ void loop() {
   _xstick_right = (short)adc_value[2];
   _ystick_right = (short)adc_value[3];
   button=adc_value[4];
+  if(button==1)button=0;
+  else button = 1;
 
   //Stick の向き等を取得
   //for (int i = 0; i < 4; i++) {
@@ -436,7 +438,7 @@ void loop() {
   float _phi = Ahrs.getPitch()*DEG_TO_RAD;
   float _psi = Ahrs.getYaw()*DEG_TO_RAD;
 
-  if(button==1)
+  if(button==0)
   {
     Phi_bias = _phi;
     Theta_bias = _theta;
@@ -452,35 +454,53 @@ void loop() {
   xstick_right = _xstick_right - xstick_bias_right;
   ystick_right = _ystick_right - ystick_bias_right;
 
-  Left_stick_x = (float)(xstick-100)/100.0;
-  Left_stick_y = (float)(ystick-100)/100.0;
-  Right_stick_x = (float)(xstick_right-100)/100.0;
-  Right_stick_y = (float)(ystick_right-100)/100.0;
+  //Normalize
+  Left_stick_x = ((float)xstick)/100.0;
+  Left_stick_y = ((float)ystick)/100.0;
+  Right_stick_x = ((float)xstick_right)/100.0;
+  Right_stick_y = ((float)ystick_right)/100.0;
   Phi   = _phi - Phi_bias;
   Theta = _theta - Theta_bias;
   Psi   = _psi - Psi_bias;
 
+  //Serial.printf("%5.2f %5.2f %5.2f %5.2f \n\r", 
+  //  Left_stick_x, Left_stick_y, Right_stick_x, Right_stick_y);
+
+
+
   uint8_t* d_int;
   
-  d_int = (uint8_t*)&Left_stick_x;
+#if 1 //for kouhei
+  float rudder = Right_stick_x;
+  float throttle = Right_stick_y;
+  float aileron = -Left_stick_x;
+  float elevator = -Left_stick_y;
+#else
+  float rudder = Left_stick_x;
+  float throttle = Left_stick_y;
+  float aileron = -Right_stick_x;
+  float elevator = -Right_stick_y;
+#endif
+
+  d_int = (uint8_t*)&rudder;//RUDDER
   senddata[0]=d_int[0];
   senddata[1]=d_int[1];
   senddata[2]=d_int[2];
   senddata[3]=d_int[3];
 
-  d_int = (uint8_t*)&Left_stick_y;
+  d_int = (uint8_t*)&throttle;//THROTLLE
   senddata[4]=d_int[0];
   senddata[5]=d_int[1];
   senddata[6]=d_int[2];
   senddata[7]=d_int[3];
 
-  d_int = (uint8_t*)&Right_stick_x;
+  d_int = (uint8_t*)&aileron;//AILERON
   senddata[8]=d_int[0];
   senddata[9]=d_int[1];
   senddata[10]=d_int[2];
   senddata[11]=d_int[3];
 
-  d_int = (uint8_t*)&Right_stick_y;
+  d_int = (uint8_t*)&elevator;//ELEVATOR
   senddata[12]=d_int[0];
   senddata[13]=d_int[1];
   senddata[14]=d_int[2];

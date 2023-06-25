@@ -374,12 +374,21 @@ void get_command(void)
   //T_ref = (3.32f*thlo -5.40f*thlo*thlo + 3.03f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
   T_ref = (3.07f*thlo -3.88f*thlo*thlo + 1.75f*thlo*thlo*thlo)*BATTERY_VOLTAGE;
 
+  #ifdef MINIJOYC
   Phi_com = 0.6*Stick[AILERON];
   if (Phi_com<-1.0f)Phi_com = -1.0f;
   if (Phi_com> 1.0f)Phi_com =  1.0f;  
   Tht_com = 0.6*Stick[ELEVATOR];
   if (Tht_com<-1.0f)Tht_com = -1.0f;
   if (Tht_com> 1.0f)Tht_com =  1.0f;  
+  #else
+  Phi_com = 0.4*Stick[AILERON];
+  if (Phi_com<-1.0f)Phi_com = -1.0f;
+  if (Phi_com> 1.0f)Phi_com =  1.0f;  
+  Tht_com = 0.4*Stick[ELEVATOR];
+  if (Tht_com<-1.0f)Tht_com = -1.0f;
+  if (Tht_com> 1.0f)Tht_com =  1.0f;  
+  #endif
   Psi_com = Stick[RUDDER];
   if (Psi_com<-1.0f)Psi_com = -1.0f;
   if (Psi_com> 1.0f)Psi_com =  1.0f;  
@@ -410,6 +419,10 @@ void get_command(void)
     BtnA_on_flag = 0;
     BtnA_off_flag = 1;
   }
+
+  USBSerial.printf("%5.2f %5.2f %5.2f %5.2f \n\r", 
+    Stick[THROTTLE], Stick[RUDDER], Stick[AILERON], Stick[ELEVATOR]);
+
 }
 
 void rate_control(void)

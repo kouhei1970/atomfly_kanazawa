@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+//#define MINIJOYC
+
 #define RUDDER 0
 #define ELEVATOR 1
 #define THROTTLE 2
@@ -25,10 +27,16 @@
 #define THROTTLE_MIN -512
 #define AILERON_MAX 127
 #define AILERON_MIN -128
+
 #define LOG_MAX 1
 #define LOG_MIN 0
 #define CH6MAX 127
 #define CH6MIN -128
+
+#define RUDDER_MAX_JOYC 100 
+#define ELEVATOR_MAX 127
+#define THROTTLE_MAX_JOYC 100
+
 #define BTID "4c:75:25:d5:b2:8e"
 
 void rc_init(void);
