@@ -11,6 +11,7 @@
 #define ANGLECONTROL_W_LOG 2
 #define RATECONTROL_W_LOG 3
 #define CHANNEL (5)
+#define JOYC_I2CADDRESS (0x38)
 
 Madgwick Ahrs;
 
@@ -31,10 +32,18 @@ float Phi, Theta, Psi;
 float Phi_bias =0.0;
 float Theta_bias = 0.0;
 float Psi_bias =0.0;
-short xstick_bias = 0.0;
-short ystick_bias = 0.0;
+float Left_stick_x;
+float Left_stick_y;
+float Right_stick_x;
+float Right_stick_y;
+short xstick_bias = 0;
+short ystick_bias = 0;
 short xstick=0;
 short ystick=0;
+short xstick_bias_right = 0;
+short ystick_bias_right = 0;
+short xstick_right=0;
+short ystick_right=0;
 uint8_t button=0;
 uint8_t buttonA=0;
 uint8_t buttonB=0;
@@ -47,7 +56,7 @@ unsigned long stime,etime,dtime;
 byte axp_cnt=0;
 
 char data[140];
-uint8_t senddata[15];
+uint8_t senddata[19];
 uint8_t disp_counter=0;
 
 //Kouhei AtomFlyのMAC ADDRESS E8:9F:6D:06:D3:A0
@@ -304,11 +313,51 @@ void setup() {
 
 }
 
+void I2CWrite1Byte(uint8_t Addr, uint8_t Data) {
+    Wire.beginTransmission(JOYC_I2CADDRESS);
+    Wire.write(Addr);
+    Wire.write(Data);
+    Wire.endTransmission();
+}
+
+void I2CWritebuff(uint8_t Addr, uint8_t *Data, uint16_t Length) {
+    Wire.beginTransmission(JOYC_I2CADDRESS);
+    Wire.write(Addr);
+    for (int i = 0; i < Length; i++) {
+        Wire.write(Data[i]);
+    }
+    Wire.endTransmission();
+}
+
+uint8_t I2CRead8bit(uint8_t Addr) {
+    Wire.beginTransmission(JOYC_I2CADDRESS);
+    Wire.write(Addr);
+    Wire.endTransmission();
+    Wire.requestFrom(JOYC_I2CADDRESS, 1);
+    return Wire.read();
+}
+
+uint16_t I2CRead16bit(uint8_t Addr) {
+    uint16_t ReData = 0;
+    Wire.beginTransmission(JOYC_I2CADDRESS);
+    Wire.write(Addr);
+    Wire.endTransmission();
+    Wire.requestFrom(JOYC_I2CADDRESS, 2);
+    for (int i = 0; i < 2; i++) {
+        ReData <<= 8;
+        ReData |= Wire.read();
+    }
+    return ReData;
+}
+
 
 
 void loop() {
-  byte rx_data[5];
-  short _xstick,_ystick;
+
+  uint8_t adc_value[5] = {0};
+  uint16_t AngleBuff[4];
+  byte rx_data[6];
+  short _xstick,_ystick,_xstick_right,_ystick_right;
   
   //100Hz
   while(Loop_flag==0);
@@ -319,7 +368,7 @@ void loop() {
 
   M5.update();
 
-  Serial.printf("ok %d\n", dtime);
+  //Serial.printf("ok %05d ", dtime);
 
 #if 1
   if(M5.BtnA.isPressed())
@@ -353,39 +402,24 @@ void loop() {
     buttonB_cnt = 0;
   }
 
-
-  Wire.beginTransmission(0x54);//I2Cスレーブ「Arduino Uno」のデータ送信開始
-  Wire.write(0x10);//x軸指定
-  Wire.endTransmission();//I2Cスレーブ「Arduino Uno」のデータ送信終了
-
-  Wire.requestFrom(0x54, 2);  //Request 3 bytes from the slave device.  
-  if (Wire.available()) { //If data is received.
-    rx_data[0] = Wire.read();
-    rx_data[1] = Wire.read();
-    _xstick=rx_data[1]*256+rx_data[0];
+  //Stick の倒し量とボタンの状態要求
+  for (int i = 0; i < 5; i++) {
+      adc_value[i] = I2CRead8bit(0x60 + i);
   }
+  
+  _xstick = (short)adc_value[0];
+  _ystick = (short)adc_value[1];
+  _xstick_right = (short)adc_value[2];
+  _ystick_right = (short)adc_value[3];
+  button=adc_value[4];
 
-  Wire.beginTransmission(0x54);//I2Cスレーブ「Arduino Uno」のデータ送信開始
-  Wire.write(0x12);//y軸指定
-  Wire.endTransmission();//I2Cスレーブ「Arduino Uno」のデータ送信終了
-
-  Wire.requestFrom(0x54, 2);  //Request 3 bytes from the slave device.  
-  if (Wire.available()) { //If data is received.
-    rx_data[2] = Wire.read();
-    rx_data[3] = Wire.read();
-    _ystick=rx_data[3]*256+rx_data[2];
-    
-  }
-
-  Wire.beginTransmission(0x54);//I2Cスレーブ「Arduino Uno」のデータ送信開始
-  Wire.write(0x30);//ボタン指定
-  Wire.endTransmission();//I2Cスレーブ「Arduino Uno」のデータ送信終了
-
-  Wire.requestFrom(0x54, 1);  //Request 3 bytes from the slave device.  
-  if (Wire.available()) { //If data is received.
-    rx_data[4] = Wire.read();
-    button=rx_data[4];
-  }
+  //Stick の向き等を取得
+  //for (int i = 0; i < 4; i++) {
+  //    AngleBuff[i] = I2CRead16bit(0x50 + i * 2);
+  //}
+  //Serial.printf("%03d %03d %03d %03d %03d * %04d %04d %04d %04d \n\r", 
+  //  adc_value[0], adc_value[1], adc_value[2], adc_value[3], adc_value[4],
+  //  AngleBuff[0], AngleBuff[1], AngleBuff[2], AngleBuff[3]);
 
 
 ////////////////////////////////////////////////////////////
@@ -402,31 +436,57 @@ void loop() {
   float _phi = Ahrs.getPitch()*DEG_TO_RAD;
   float _psi = Ahrs.getYaw()*DEG_TO_RAD;
 
-  if(button==0)
+  if(button==1)
   {
     Phi_bias = _phi;
     Theta_bias = _theta;
-    Psi_bias = _psi;
+    Psi_bias = _psi; 
     xstick_bias = _xstick;
     ystick_bias = _ystick;
+    xstick_bias_right = _xstick_right;
+    ystick_bias_right = _ystick_right;
   }
 
   xstick = _xstick - xstick_bias;
   ystick = _ystick - ystick_bias;
-  Phi = _phi - Phi_bias;
+  xstick_right = _xstick_right - xstick_bias_right;
+  ystick_right = _ystick_right - ystick_bias_right;
+
+  Left_stick_x = (float)(xstick-100)/100.0;
+  Left_stick_y = (float)(ystick-100)/100.0;
+  Right_stick_x = (float)(xstick_right-100)/100.0;
+  Right_stick_y = (float)(ystick_right-100)/100.0;
+  Phi   = _phi - Phi_bias;
   Theta = _theta - Theta_bias;
-  Psi = _psi - Psi_bias;
+  Psi   = _psi - Psi_bias;
 
   uint8_t* d_int;
   
-  d_int = (uint8_t*)&xstick;
+  d_int = (uint8_t*)&Left_stick_x;
   senddata[0]=d_int[0];
   senddata[1]=d_int[1];
+  senddata[2]=d_int[2];
+  senddata[3]=d_int[3];
 
-  d_int = (uint8_t*)&ystick;
-  senddata[2]=d_int[0];
-  senddata[3]=d_int[1];
+  d_int = (uint8_t*)&Left_stick_y;
+  senddata[4]=d_int[0];
+  senddata[5]=d_int[1];
+  senddata[6]=d_int[2];
+  senddata[7]=d_int[3];
 
+  d_int = (uint8_t*)&Right_stick_x;
+  senddata[8]=d_int[0];
+  senddata[9]=d_int[1];
+  senddata[10]=d_int[2];
+  senddata[11]=d_int[3];
+
+  d_int = (uint8_t*)&Right_stick_y;
+  senddata[12]=d_int[0];
+  senddata[13]=d_int[1];
+  senddata[14]=d_int[2];
+  senddata[15]=d_int[3];
+
+#if 0
   d_int = (uint8_t*)&Phi;
   senddata[4]=d_int[0];
   senddata[5]=d_int[1];
@@ -438,12 +498,13 @@ void loop() {
   senddata[9]=d_int[1];
   senddata[10]=d_int[2];
   senddata[11]=d_int[3];
+#endif
 
-  senddata[12]=button;
+  senddata[16]=button;
 
-  senddata[13]=buttonA;
+  senddata[17]=buttonA;
 
-  senddata[14]=Mode;
+  senddata[18]=Mode;
 
   esp_err_t result = esp_now_send(peerInfo.peer_addr, senddata, sizeof(senddata));
 
